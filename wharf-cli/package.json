@@ -1,0 +1,20 @@
+{
+  "name": "wharf-cli",
+  "version": "0.0.1",
+  "description": "Arma mod sync",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "ts-node": "ts-node src/index.ts"
+  },
+  "author": "ARK",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "10.9.4",
+    "ts-node": "7.0.1",
+    "typescript": "3.0.3"
+  },
+  "dependencies": {
+    "commander": "2.18.0"
+  }
+}

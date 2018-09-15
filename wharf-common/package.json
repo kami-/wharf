@@ -1,0 +1,20 @@
+{
+  "name": "wharf-common",
+  "version": "0.0.1",
+  "description": "Common functionality for wharf-client and wharf-cli",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "author": "ARK",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/fs-extra": "5.0.4",
+    "@types/recursive-readdir": "2.2.0",
+    "typescript": "3.0.3"
+  },
+  "dependencies": {
+    "fs-extra": "7.0.0",
+    "recursive-readdir": "2.2.2"
+  }
+}
