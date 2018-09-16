@@ -2,10 +2,12 @@
 
 import * as fs from "fs-extra";
 import * as path from "path";
+import * as https from "https";
 
+import * as program from "commander";
 import { Client } from "basic-ftp";
 
-import { Config, ModFolder, ModFile, Map, getModFolderFiles, getModFileStats, hashMod, syncronizePromises, subtract } from "wharf-common";
+import { Config, ModFolder, ModFile, Map, getModFolderFiles, getModFileStats, generateModFolders, hashMod, syncronizePromises, subtract } from "wharf-common";
 
 interface ModState {
     state: SyncState;
@@ -172,12 +174,42 @@ function toPosix(p: string) {
     return p.replace(/\\/g, path.posix.sep);
 }
 
-try {
-    const serverConfig: Config = JSON.parse(fs.readFileSync("./server-config.json", "utf-8"));
-    const localConfig: Config = JSON.parse(fs.readFileSync("./local-config.json", "utf-8"));
-    synchronizeConfigs(serverConfig, localConfig)
-        .then(newLocalConfig => fs.writeFileSync("./local-config2.json", JSON.stringify(newLocalConfig, null, 4)));
-} catch (e) {
-    console.error("Something went wrong!", e);
+async function fullVerify(localConfig: Config): Promise<Config> {
+    return {
+        ...localConfig,
+        mods: await generateModFolders(localConfig.root)
+    };
 }
 
+function getServerConfig(serverConfigUrl: string): Promise<Config> {
+    return new Promise((resolve, reject) => {
+        https.get(serverConfigUrl, resp => {
+            let data = "";
+            resp.on("data", chunk => { data += chunk; });
+            resp.on("end", () => { resolve(JSON.parse(data)); });
+        }).on("error", err => {
+            reject(err);
+        });
+    });
+}
+
+program
+    .version("-v, --version", "0.0.1")
+    .option("-c, --config [config]", "Config file path, default is ./config.json")
+    .option("-s, --server-config-url [serverConfigUrl]", "URL where the server config is located")
+    .parse(process.argv);
+
+if (!program.config || !program.serverConfigUrl) {
+    console.error("Config file and server config URL options must be provided!");
+} else {
+    try {
+        getServerConfig(program.serverConfigUrl).then(async serverConfig => {
+            const localConfig: Config = JSON.parse(fs.readFileSync(program.config, "utf-8"));
+            const verifiedLocalConfig = await fullVerify(localConfig);
+            synchronizeConfigs(serverConfig, verifiedLocalConfig)
+                .then(newLocalConfig => fs.writeFileSync(program.config, JSON.stringify(newLocalConfig, null, 4)));
+        });
+    } catch (e) {
+        console.error("Something went wrong!", e);
+    }
+}

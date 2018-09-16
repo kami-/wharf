@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "basic-ftp": "2.13.2",
+    "commander": "2.18.0",
     "fs-extra": "7.0.0"
   }
 }

@@ -96,6 +96,35 @@ export function syncronizePromises(promiseFactories: (() => Promise<any>)[]) {
         .reduce((acc, factory) => acc.then(factory), Promise.resolve());
 }
 
+export function generateModFolders(root: string): Promise<Map<ModFolder>> {
+    return new Promise((resolve, reject) => {
+        fs.readdir(root, async (err, files) => {
+            if (err) { reject(err); }
+            const modFolders = await Promise.all(files
+                .filter(isModFolder)
+                .map(modFolder => getModFolderStats(root, modFolder)));
+            resolve(modFolders.reduce((map, modFolder) => {
+                map[modFolder.name] = modFolder;
+                return map;
+            }, <Map<ModFolder>>{}));
+        });
+    });
+}
+
+function isModFolder(name: string): boolean {
+    return name.charAt(0) == "@";
+}
+
+async function getModFolderStats(root: string, folder: string): Promise<ModFolder> {
+    const modFiles = await getModFolderFiles(root, folder);
+    return {
+        name: folder,
+        size: modFiles.reduce((sum, f) => sum + f.size, 0),
+        hash: hashMod(folder, modFiles),
+        modFiles: modFiles
+    };
+}
+
 function sort<T>(array: T[], compare: (a: T, b: T) => number): T[] {
     return array
         .map((item, index) => ({ item, index }))

@@ -2,6 +2,7 @@
 
 /**/dist
 
+/**/test-repo
 /**/example-*
 /**/*-config*.json
 /wharf-cli/example.json
