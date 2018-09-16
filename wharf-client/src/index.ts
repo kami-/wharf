@@ -164,10 +164,12 @@ async function synchronizeMod(serverConfig: Config, newLocalConfig: Config, ftp:
     console.log(`Unkown state '${modState.state}' for mod '${modName}!`);
 }
 
-function downloadFile(ftp: Client, root: string, ftpRoot: string, file: string) {
+async function downloadFile(ftp: Client, root: string, ftpRoot: string, file: string) {
     const ftpFilePath = toPosix(path.join(ftpRoot, file));
     console.log(`Downloading '${ftpFilePath}' to '${path.join(root, file)}'.`);
-    return ftp.download(fs.createWriteStream(path.join(root, file)), ftpFilePath);
+    const filePath = path.join(root, file);
+    await fs.ensureDir(path.parse(filePath).dir);
+    return ftp.download(fs.createWriteStream(filePath), ftpFilePath);
 }
 
 function toPosix(p: string) {
