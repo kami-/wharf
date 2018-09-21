@@ -16,7 +16,17 @@ interface ModState {
 
 type SyncState = "ok" | "delete" | "sync" | "add";
 
-function getModStates(serverConfig: Config, localConfig: Config) {
+type ModComparator = (one: ModFolder, other: ModFolder) => boolean;
+type FileComparator = (one: ModFile, other: ModFile) => boolean;
+
+const compareModsByHash = (one: ModFolder, other: ModFolder) => one.hash == other.hash;
+const compareFilesByHash = (one: ModFile, other: ModFile) => one.hash == other.hash;
+const compareModsBySize = (one: ModFolder, other: ModFolder) => one.size == other.size;
+const compareFilesBySize = (one: ModFile, other: ModFile) => one.size == other.size;
+
+function getModStates(serverConfig: Config, localConfig: Config,
+    modComparator: ModComparator = compareModsByHash, fileComparator: FileComparator = compareFilesByHash)
+{
     const modStates: Map<ModState> = {};
     Object
         .keys(localConfig.mods)
@@ -27,9 +37,9 @@ function getModStates(serverConfig: Config, localConfig: Config) {
                 modStates[localMod.name] = { state: "delete", fileStates: {} };
                 return;
             }
-            if (serverMod.hash != localMod.hash) {
+            if (modComparator(serverMod, localMod)) {
                 const fileStates: Map<SyncState> = {};
-                filesToSync(serverMod, localMod)
+                filesToSync(serverMod, localMod, fileComparator)
                     .reduce((fsts, file) => {
                         fsts[file] = "sync";
                         return fsts;
@@ -56,9 +66,9 @@ function getModStates(serverConfig: Config, localConfig: Config) {
     return modStates;
 }
 
-function filesToSync(serverMod: ModFolder, localMod: ModFolder) {
+function filesToSync(serverMod: ModFolder, localMod: ModFolder, fileComparator: FileComparator) {
     const modifiedFiles = localMod.modFiles
-        .filter(file => shouldDownloadFile(file, serverMod.modFiles))
+        .filter(file => shouldDownloadFile(file, serverMod.modFiles, fileComparator))
         .map(file => file.relativePath);
     const serverFiles = serverMod.modFiles.map(file => file.relativePath);
     const localFiles = localMod.modFiles.map(file => file.relativePath);
@@ -72,9 +82,9 @@ function filesToDelete(serverMod: ModFolder, localMod: ModFolder) {
 }
 
 
-function shouldDownloadFile(localFile: ModFile, serverModFiles: ModFile[]) {
+function shouldDownloadFile(localFile: ModFile, serverModFiles: ModFile[], fileComparator: FileComparator) {
     return serverModFiles
-        .filter(file => file.hash == localFile.hash)
+        .filter(file => fileComparator(file, localFile))
         .length == 0;
 }
 
@@ -176,7 +186,14 @@ function toPosix(p: string) {
     return p.replace(/\\/g, path.posix.sep);
 }
 
-async function fullVerify(localConfig: Config): Promise<Config> {
+async function regenerateConfigWithoutHashes(localConfig: Config): Promise<Config> {
+    return {
+        ...localConfig,
+        mods: await generateModFolders(localConfig.root, () => "", () => Promise.resolve(""))
+    };
+}
+
+async function regenerateConfig(localConfig: Config): Promise<Config> {
     return {
         ...localConfig,
         mods: await generateModFolders(localConfig.root)
@@ -207,7 +224,7 @@ if (!program.config || !program.serverConfigUrl) {
     try {
         getServerConfig(program.serverConfigUrl).then(async serverConfig => {
             const localConfig: Config = JSON.parse(fs.readFileSync(program.config, "utf-8"));
-            const verifiedLocalConfig = await fullVerify(localConfig);
+            const verifiedLocalConfig = await regenerateConfig(localConfig);
             synchronizeConfigs(serverConfig, verifiedLocalConfig)
                 .then(newLocalConfig => fs.writeFileSync(program.config, JSON.stringify(newLocalConfig, null, 4)));
         });

@@ -49,7 +49,7 @@ async function getModFileStatsAbsolute(root: string, absoluteFile: string, fileH
     };
 }
 
-export async function getModFolderFiles(root: string, folder: string, fileHasher: FileHasher) {
+export async function getModFolderFiles(root: string, folder: string, fileHasher: FileHasher = hashFile) {
     const files = await recursive(path.join(root, folder));
     return await Promise.all(files.map(file => getModFileStatsAbsolute(root, file, fileHasher)));
 }
