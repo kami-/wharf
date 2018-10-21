@@ -24,6 +24,7 @@ export function registerIpcHandlers() {
             synchronizeConfigs(event.sender);
         } catch (e) {
             log.error(`Bootstrap failed for root '${localRootPath}' and server config URL '${serverConfigUrl}'!`);
+            log.error(e);
             log.debug(`Sending IPC event '${RendererIpcEvents.BOOTSTRAP_FAILED}' to renderer.`);
             event.sender.send(RendererIpcEvents.BOOTSTRAP_FAILED);
         }

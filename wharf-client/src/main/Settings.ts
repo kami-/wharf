@@ -1,4 +1,5 @@
 import * as path from "path";
+import * as os from "os";
 
 import * as fs from "fs-extra";
 
@@ -22,8 +23,8 @@ function getSettingsFilePath() {
 
 function getSettingsFolder() {
     if (process.platform == "win32") {
-        const folder = process.env.LOCALAPPDATA || "~";
+        const folder = path.resolve(process.env.LOCALAPPDATA || os.homedir());
         return path.join(folder, "Wharf");
     }
-    return path.join("~", ".wharf");
+    return path.join(path.resolve(os.homedir()), ".wharf");
 }

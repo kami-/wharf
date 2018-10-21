@@ -12,8 +12,8 @@ export function registerIpcHandlers() {
         history.push("/bootstrap");
     });
 
-    ipcRenderer.on(RendererIpcEvents.BOOTSTRAP_SUCCEEDED, () => {
-        log.debug(`Renderer received IPC event '${RendererIpcEvents.BOOTSTRAP_SUCCEEDED}'.`);
+    ipcRenderer.on(RendererIpcEvents.START_SYNCHRONIZATION, () => {
+        log.debug(`Renderer received IPC event '${RendererIpcEvents.START_SYNCHRONIZATION}'.`);
         history.push("/synchronize");
     });
 

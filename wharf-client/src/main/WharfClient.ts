@@ -24,7 +24,7 @@ const compareFilesByHash = (one: ModFile, other: ModFile) => one.hash == other.h
 const compareModsBySize = (one: ModFolder, other: ModFolder) => one.size == other.size;
 const compareFilesBySize = (one: ModFile, other: ModFile) => one.size == other.size;
 
-function getModStates(serverConfig: Config, localConfig: Config,
+function getModStates(localConfig: Config, serverConfig: Config,
     modComparator: ModComparator = compareModsByHash, fileComparator: FileComparator = compareFilesByHash)
 {
     const modStates: Map<ModState> = {};
@@ -89,7 +89,7 @@ function shouldDownloadFile(localFile: ModFile, serverModFiles: ModFile[], fileC
 }
 
 export async function synchronizeConfigs(serverConfig: Config, localConfig: Config, trackProgressHandler: (info: TrackingInfo) => void = () => {}) {
-    const modStates = getModStates(serverConfig, localConfig);
+    const modStates = getModStates(localConfig, serverConfig);
     const newLocalConfig: Config = {
         root: localConfig.root,
 
@@ -192,7 +192,7 @@ function toPosix(p: string) {
 function needsSync(localConfig: Config, serverConfig: Config, modComparator: ModComparator, fileComparator: FileComparator) {
     const modStates = getModStates(localConfig, serverConfig, modComparator, fileComparator);
     return Object.keys(modStates)
-        .findIndex(mod => modStates[mod].state == "sync") != -1;
+        .findIndex(mod => needsDownload(modStates[mod].state)) != -1;
 }
 
 function needsDownload(state: SyncState) {

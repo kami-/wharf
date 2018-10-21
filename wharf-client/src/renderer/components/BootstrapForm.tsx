@@ -4,7 +4,7 @@ import { connect } from "react-redux";
 import * as IpcHandler from "../IpcHandler";
 
 const BootstrapForm = () => {
-    let localRepoRoot: HTMLInputElement | null;
+    let localRepoRoot: any;
     let serverConfigUrl: HTMLInputElement | null;
 
     function onClick() {
@@ -14,13 +14,13 @@ const BootstrapForm = () => {
         if (!serverConfigUrl || !serverConfigUrl.value) {
             return;
         }
-        IpcHandler.bootrapConfig(localRepoRoot.value.trim(), serverConfigUrl.value.trim());
+        IpcHandler.bootrapConfig(localRepoRoot.files[0].path.trim(), serverConfigUrl.value.trim());
     }
 
     return <div>
         <fieldset>
             <label htmlFor="local-repo-root">Repo folder</label>
-            <input id="local-repo-root" name="local-repo-root" type="text"
+            <input id="local-repo-root" name="local-repo-root" type="file" webkitdirectory="true"
                 ref={node => { localRepoRoot = node; }} />
         </fieldset>
         <fieldset>
