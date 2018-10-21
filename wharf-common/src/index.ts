@@ -8,6 +8,7 @@ const HASH_ALGORITHM = "md5";
 
 export interface Config {
     root: string;
+    serverConfigUrl: string;
     ftp: FtpConfig;
     mods: Map<ModFolder>;
 }

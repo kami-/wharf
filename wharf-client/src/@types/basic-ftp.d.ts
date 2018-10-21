@@ -9,12 +9,19 @@ declare module "basic-ftp" {
         secure?: boolean;
     }
 
+    export interface TrackingInfo {
+        name: string,
+        bytes: number;
+        bytesOverall: number;
+    }
+
     export interface FTPContext {
         verbose: boolean;
     }
 
     export class Client {
         ftp: FTPContext;
+        trackProgress: (handler: (info: TrackingInfo) => void) => void;
         close(): void;
         access(config: AccessConfig): Promise<Response>;
         cd(remotePath: string): Promise<Response>;

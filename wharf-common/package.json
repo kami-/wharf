@@ -2,7 +2,7 @@
   "name": "wharf-common",
   "version": "0.0.1",
   "description": "Common functionality for wharf-client and wharf-cli",
-  "main": "src/index.ts",
+  "main": "dist/index.js",
   "scripts": {
     "build": "tsc"
   },

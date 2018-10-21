@@ -1,13 +1,13 @@
-/// <reference path="@types/basic-ftp.d.ts" />
+/// <reference path="../@types/basic-ftp.d.ts" />
 
 import * as fs from "fs-extra";
 import * as path from "path";
 import * as https from "https";
 
-import * as program from "commander";
-import { Client } from "basic-ftp";
+import { Client, TrackingInfo } from "basic-ftp";
 
 import { Config, ModFolder, ModFile, Map, getModFolderFiles, getModFileStats, generateModFolders, hashMod, syncronizePromises, subtract } from "wharf-common";
+import { WharfError } from "../common/Error";
 
 interface ModState {
     state: SyncState;
@@ -88,14 +88,17 @@ function shouldDownloadFile(localFile: ModFile, serverModFiles: ModFile[], fileC
         .length == 0;
 }
 
-async function synchronizeConfigs(serverConfig: Config, localConfig: Config) {
+export async function synchronizeConfigs(serverConfig: Config, localConfig: Config, trackProgressHandler: (info: TrackingInfo) => void = () => {}) {
     const modStates = getModStates(serverConfig, localConfig);
     const newLocalConfig: Config = {
         root: localConfig.root,
+
+        serverConfigUrl: serverConfig.serverConfigUrl,
         ftp: serverConfig.ftp,
         mods: {}
     };
     const ftp = new Client();
+    ftp.trackProgress(trackProgressHandler);
     //ftp.ftp.verbose = true;
     try {
         await ftp.access({
@@ -179,56 +182,74 @@ async function downloadFile(ftp: Client, root: string, ftpRoot: string, file: st
     console.log(`Downloading '${ftpFilePath}' to '${path.join(root, file)}'.`);
     const filePath = path.join(root, file);
     await fs.ensureDir(path.parse(filePath).dir);
-    return ftp.download(fs.createWriteStream(filePath), ftpFilePath);
+    return await ftp.download(fs.createWriteStream(filePath), ftpFilePath);
 }
 
 function toPosix(p: string) {
     return p.replace(/\\/g, path.posix.sep);
 }
 
-async function regenerateConfigWithoutHashes(localConfig: Config): Promise<Config> {
+function needsSync(localConfig: Config, serverConfig: Config, modComparator: ModComparator, fileComparator: FileComparator) {
+    const modStates = getModStates(localConfig, serverConfig, modComparator, fileComparator);
+    return Object.keys(modStates)
+        .findIndex(mod => modStates[mod].state == "sync") != -1;
+}
+
+function needsDownload(state: SyncState) {
+    return state == "sync" || state == "add";
+}
+
+export function needsSyncBySize(localConfig: Config, serverConfig: Config) {
+    return needsSync(localConfig, serverConfig, compareModsBySize, compareFilesBySize);
+}
+
+export function needsSyncByHashes(localConfig: Config, serverConfig: Config) {
+    return needsSync(localConfig, serverConfig, compareModsByHash, compareFilesByHash);
+}
+
+export async function regenerateConfigWithoutHashes(localConfig: Config): Promise<Config> {
     return {
         ...localConfig,
         mods: await generateModFolders(localConfig.root, () => "", () => Promise.resolve(""))
     };
 }
 
-async function regenerateConfig(localConfig: Config): Promise<Config> {
+export function bytesToBeDownloaded(modStates: Map<ModState>, serverConfig: Config) {
+    return Object.keys(modStates)
+        .filter(mod => needsDownload(modStates[mod].state))
+        .reduce((sum, mod) => {
+            const modState = modStates[mod];
+            if (modState.state == "sync") {
+                return sum + serverConfig.mods[mod].modFiles
+                    .filter(file => modState.fileStates[file.relativePath] && needsDownload(modState.fileStates[file.relativePath]))
+                    .map(file => file.size)
+                    .reduce((fileSum, size) => fileSum + size, 0);
+            }
+            return sum + serverConfig.mods[mod].size;
+        }, 0);
+}
+
+export async function bootstrapConfig(serverConfigUrl: string, serverConfig: Config, root: string): Promise<Config> {
     return {
-        ...localConfig,
-        mods: await generateModFolders(localConfig.root)
+        root: root,
+        serverConfigUrl: serverConfigUrl,
+        ftp: serverConfig.ftp,
+        mods: await generateModFolders(root)
     };
 }
 
-function getServerConfig(serverConfigUrl: string): Promise<Config> {
+export function getServerConfig(serverConfigUrl: string): Promise<Config> {
     return new Promise((resolve, reject) => {
         https.get(serverConfigUrl, resp => {
             let data = "";
             resp.on("data", chunk => { data += chunk; });
             resp.on("end", () => { resolve(JSON.parse(data)); });
         }).on("error", err => {
-            reject(err);
+            reject(new WharfError("failed-to-get-server-config", err));
         });
     });
 }
 
-program
-    .version("-v, --version", "0.0.1")
-    .option("-c, --config [config]", "Config file path, default is ./config.json")
-    .option("-s, --server-config-url [serverConfigUrl]", "URL where the server config is located")
-    .parse(process.argv);
-
-if (!program.config || !program.serverConfigUrl) {
-    console.error("Config file and server config URL options must be provided!");
-} else {
-    try {
-        getServerConfig(program.serverConfigUrl).then(async serverConfig => {
-            const localConfig: Config = JSON.parse(fs.readFileSync(program.config, "utf-8"));
-            const verifiedLocalConfig = await regenerateConfig(localConfig);
-            synchronizeConfigs(serverConfig, verifiedLocalConfig)
-                .then(newLocalConfig => fs.writeFileSync(program.config, JSON.stringify(newLocalConfig, null, 4)));
-        });
-    } catch (e) {
-        console.error("Something went wrong!", e);
-    }
+export function loadConfig(configPath: string): Config {
+    return JSON.parse(fs.readFileSync(configPath, "utf-8"));
 }
