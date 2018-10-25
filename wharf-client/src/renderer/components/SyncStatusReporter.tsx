@@ -1,5 +1,7 @@
 import React from "react";
+
 import { SynchronizationState } from "../Store";
+import Frame from "./Frame";
 
 interface SyncStatusReporterProps extends SynchronizationState {
     stopHandler: () => void;
@@ -12,21 +14,21 @@ const SyncStatusReporter = ({
     isStopping,
     stopHandler
 }: SyncStatusReporterProps) => {
-    return <div>
+    return <Frame>
         <div>
             <div>
-                <span>{toMib(downloaded)}</span>
-                <span>/</span>
-                <span>{toMib(toBeDownloaded)}</span>
+                <span>{`${toMib(downloaded)} MiB`}</span>
+                <span> / </span>
+                <span>{`${toMib(toBeDownloaded)} MiB`}</span>
             </div>
-            <div>Downloading <span>{fileBeingDownloaded}</span></div>
+            <div>Downloading: <span>{fileBeingDownloaded}</span></div>
         </div>
-        <button disabled={isStopping} onClick={stopHandler}>Stop</button>
-    </div>;
+        <button className="button is-danger" disabled={isStopping} onClick={stopHandler}>Stop</button>
+    </Frame>;
 };
 
 function toMib(sizeInBytes: number) {
-    return sizeInBytes / 1024 / 1024;
+    return Math.round(sizeInBytes / 1024 / 1024 * 100) / 100;
 }
 
 export default SyncStatusReporter;
