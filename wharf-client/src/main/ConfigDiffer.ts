@@ -57,7 +57,7 @@ export function diffConfigs(sourceConfig: Config, targetConfig: Config,
     subtract(targetModNames, sourceNames)
         .forEach(modName => {
             modDiffs.push({ mod: modName, state: "sync" });
-            const sourceFileDiffs = sourceConfig.mods[modName].modFiles
+            const sourceFileDiffs = targetConfig.mods[modName].modFiles
                 .map(file => ({ file: file.relativePath, mod: modName, state: <FileDiffState>"sync" }));
             fileDiffs.push(...sourceFileDiffs);
         });
@@ -65,6 +65,10 @@ export function diffConfigs(sourceConfig: Config, targetConfig: Config,
         mods: modDiffs,
         files: fileDiffs
     };
+}
+
+export function diffConfigsBySize(sourceConfig: Config, targetConfig: Config) {
+    return diffConfigs(sourceConfig, targetConfig, compareModsBySize, compareFilesBySize);
 }
 
 function filesToSync(sourceMod: ModFolder, targetMod: ModFolder, fileComparator: FileComparator) {

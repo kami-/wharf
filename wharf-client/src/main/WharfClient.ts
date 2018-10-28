@@ -9,10 +9,11 @@ import { Client, TrackingInfo } from "basic-ftp";
 import { generateModFolders, syncronizePromises, ServerConfig, toPosix } from "wharf-common";
 import { WharfError } from "../common/Error";
 import { LocalConfig } from "./Config";
-import { diffConfigs, ModComparator, FileComparator, compareModsBySize, compareFilesBySize, compareFilesByHash, compareModsByHash, ConfigDiff } from "./ConfigDiffer";
+import { ConfigDiff } from "./ConfigDiffer";
 
-export async function synchronizeLocalConfig(localConfig: LocalConfig, serverConfig: ServerConfig, trackProgressHandler: (info: TrackingInfo) => void = () => {}) {
-    const configDiff = diffConfigs(localConfig, serverConfig);
+export async function synchronizeLocalConfig(configDiff: ConfigDiff, localConfig: LocalConfig, serverConfig: ServerConfig,
+    trackProgressHandler: (info: TrackingInfo) => void = () => {})
+{
     const newLocalConfig: LocalConfig = {
         root: localConfig.root,
         serverConfigUrl: localConfig.serverConfigUrl,
@@ -79,17 +80,8 @@ async function downloadFile(ftp: Client, root: string, ftpRoot: string, file: st
     return await ftp.download(fs.createWriteStream(filePath), ftpFilePath);
 }
 
-function needsSync(localConfig: LocalConfig, serverConfig: ServerConfig, modComparator: ModComparator, fileComparator: FileComparator) {
-    const configDiff = diffConfigs(localConfig, serverConfig, modComparator, fileComparator);
+export function needsSync(configDiff: ConfigDiff) {
     return configDiff.files.length != 0;
-}
-
-export function needsSyncBySize(localConfig: LocalConfig, serverConfig: ServerConfig) {
-    return needsSync(localConfig, serverConfig, compareModsBySize, compareFilesBySize);
-}
-
-export function needsSyncByHashes(localConfig: LocalConfig, serverConfig: ServerConfig) {
-    return needsSync(localConfig, serverConfig, compareModsByHash, compareFilesByHash);
 }
 
 export async function generateLocalConfigWithoutHashes(localConfig: LocalConfig): Promise<LocalConfig> {
