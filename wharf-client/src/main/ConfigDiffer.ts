@@ -41,7 +41,7 @@ export function diffConfigs(sourceConfig: Config, targetConfig: Config,
                     .map(file => ({ file: file.relativePath, mod: sourceMod.name, state: <FileDiffState>"delete" }));
                 fileDiffs.push(...sourceFileDiffs);
             }
-            if (modComparator(targetMod, sourceMod)) {
+            if (!modComparator(targetMod, sourceMod)) {
                 modDiffs.push({ mod: sourceMod.name, state: "sync" });
                 const deleteSourceFileDiffs = filesToDelete(sourceMod, targetMod)
                     .map(file => ({ file: file, mod: sourceMod.name, state: <FileDiffState>"delete" }));

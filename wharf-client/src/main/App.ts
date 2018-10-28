@@ -22,7 +22,7 @@ export function registerIpcHandlers() {
         try {
             await bootstrapConfig(localRootPath, serverConfigUrl);
             log.debug(`Bootstrap succeeded for root '${localRootPath}' and server config URL '${serverConfigUrl}'!`);
-            synchronizeConfigs(event.sender);
+            synchronizeLocalConfig(event.sender);
         } catch (e) {
             log.error(`Bootstrap failed for root '${localRootPath}' and server config URL '${serverConfigUrl}'!`);
             log.error(e);
@@ -39,7 +39,7 @@ export async function initialize(window: BrowserWindow) {
     if (settings.lastConfigPath) {
         try {
             await loadExistingConfig(settings.lastConfigPath);
-            synchronizeConfigs(window.webContents);
+            synchronizeLocalConfig(window.webContents);
         } catch(e) {
             if (isError(e, "failed-to-get-server-config")) {
                 serverConfigNeeded(window);
@@ -90,12 +90,12 @@ async function bootstrapConfig(localRootPath: string, serverConfigUrl: string) {
     log.debug(`Bootstraped locals config for '${localRootPath}'.`);
 }
 
-async function synchronizeConfigs(target: any) {
+async function synchronizeLocalConfig(target: any) {
     if (!SERVER_CONFIG || !LOCAL_CONFIG || !trackProgressHandler) {
         log.error(`Unable to synchronize, missing configs or track progress handler!`);
         return;
     }
-    const localConfigWithoutHashes = await WharfClient.regenerateLocalConfigWithoutHashes(LOCAL_CONFIG);
+    const localConfigWithoutHashes = await WharfClient.generateLocalConfigWithoutHashes(LOCAL_CONFIG);
     const needsSyncBySize = WharfClient.needsSyncBySize(localConfigWithoutHashes, SERVER_CONFIG);
     log.debug(`Client needs sync by size comparison '${needsSyncBySize}'.`);
     if (!needsSyncBySize) {
@@ -109,7 +109,7 @@ async function synchronizeConfigs(target: any) {
     }
     log.debug(`Sending IPC event '${RendererIpcEvents.START_SYNCHRONIZATION}' to renderer.`);
     target.send(RendererIpcEvents.START_SYNCHRONIZATION);
-    LOCAL_CONFIG = await WharfClient.synchronizeConfigs(SERVER_CONFIG, LOCAL_CONFIG, trackProgressHandler);
+    LOCAL_CONFIG = await WharfClient.synchronizeLocalConfig(LOCAL_CONFIG, SERVER_CONFIG, trackProgressHandler);
 }
 
 function bootstrapNeeded(window: BrowserWindow) {
