@@ -46,7 +46,7 @@ async function getModFileStatsAbsolute(root: string, absoluteFile: string, fileH
     const stat = fs.statSync(absoluteFile);
     const hash = await fileHasher(absoluteFile);
     return {
-        relativePath: path.relative(root, absoluteFile),
+        relativePath: toPosix(path.relative(root, absoluteFile)),
         size: stat.size,
         hash: hash
     };
@@ -55,17 +55,6 @@ async function getModFileStatsAbsolute(root: string, absoluteFile: string, fileH
 export async function getModFolderFiles(root: string, folder: string, fileHasher: FileHasher = hashFile) {
     const files = await recursive(path.join(root, folder));
     return await Promise.all(files.map(file => getModFileStatsAbsolute(root, file, fileHasher)));
-}
-
-export async function getModFileStats(root: string, file: string) {
-    const absoluteFile = path.join(root, file);
-    const stat = fs.statSync(absoluteFile);
-    const hash = await hashFile(absoluteFile);
-    return {
-        relativePath: file,
-        size: stat.size,
-        hash: hash
-    };
 }
 
 export function hashFile(file: string): Promise<string> {
@@ -95,6 +84,10 @@ export function hashMod(modName: string, modFiles: ModFile[]): string {
 
 export function subtract<T>(from: T[], what: T[]) {
     return from.filter(e => what.indexOf(e) == -1)
+}
+
+export function toPosix(p: string) {
+    return p.replace(/\\/g, path.posix.sep);
 }
 
 export function syncronizePromises(promiseFactories: (() => Promise<any>)[]) {
