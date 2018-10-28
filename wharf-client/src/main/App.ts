@@ -11,11 +11,12 @@ import * as WharfClient from "./WharfClient";
 import { Settings, readSettings, writeSettings } from "./Settings";
 import { MainIpcEvents, RendererIpcEvents } from "../common/IpcEvents";
 import { TrackingInfo } from "basic-ftp";
+import { diffConfigs, diffConfigsBySize, ConfigDiff } from "./ConfigDiffer";
 
 let LOCAL_CONFIG: LocalConfig | null = null;
 let SERVER_CONFIG: ServerConfig | null = null;
 let settings: Settings;
-let trackProgressHandler: ((info: TrackingInfo) => void) | null = null;
+let TRACK_PROGRESS_HANDLER: ((info: TrackingInfo) => void) | null = null;
 
 export function registerIpcHandlers() {
     ipcMain.on(MainIpcEvents.BOOTSTRAP_CONFIG, async (event: any, localRootPath: string, serverConfigUrl: string) => {
@@ -33,7 +34,7 @@ export function registerIpcHandlers() {
 }
 
 export async function initialize(window: BrowserWindow) {
-    trackProgressHandler = createTrackProgressHandler(window);
+    TRACK_PROGRESS_HANDLER = createTrackProgressHandler(window);
     settings = readSettings();
     log.debug(`Read settings '${settings}'.`);
     if (settings.lastConfigPath) {
@@ -91,25 +92,35 @@ async function bootstrapConfig(localRootPath: string, serverConfigUrl: string) {
 }
 
 async function synchronizeLocalConfig(target: any) {
-    if (!SERVER_CONFIG || !LOCAL_CONFIG || !trackProgressHandler) {
+    if (!SERVER_CONFIG || !LOCAL_CONFIG || !TRACK_PROGRESS_HANDLER) {
         log.error(`Unable to synchronize, missing configs or track progress handler!`);
         return;
     }
     const localConfigWithoutHashes = await WharfClient.generateLocalConfigWithoutHashes(LOCAL_CONFIG);
-    const needsSyncBySize = WharfClient.needsSyncBySize(localConfigWithoutHashes, SERVER_CONFIG);
-    log.debug(`Client needs sync by size comparison '${needsSyncBySize}'.`);
-    if (!needsSyncBySize) {
-        const needsSyncByHashes = WharfClient.needsSyncByHashes(LOCAL_CONFIG, SERVER_CONFIG);
-        log.debug(`Client needs sync by hash comparison '${needsSyncByHashes}'.`);
-        if (!needsSyncByHashes) {
-            log.debug(`Sending IPC event '${RendererIpcEvents.POSSIBLE_FULL_VERIFICATION_NEEDED}' to renderer.`);
-            target.send(RendererIpcEvents.POSSIBLE_FULL_VERIFICATION_NEEDED);
-            return;
-        }
+    const configDiffWithoutHashes = diffConfigsBySize(localConfigWithoutHashes, SERVER_CONFIG);
+    const needsSyncBySize = WharfClient.needsSync(configDiffWithoutHashes);
+    log.debug(`Client needs sync by size comparison '${configDiffWithoutHashes}'.`);
+    if (needsSyncBySize) {
+        startSynchronization(target, configDiffWithoutHashes, LOCAL_CONFIG, SERVER_CONFIG, TRACK_PROGRESS_HANDLER);
+        return;
     }
+    const configDiffWithHashes = diffConfigs(LOCAL_CONFIG, SERVER_CONFIG);
+    const needsSyncByHashes = WharfClient.needsSync(configDiffWithHashes);
+    log.debug(`Client needs sync by hash comparison '${needsSyncByHashes}'.`);
+    if (needsSyncByHashes) {
+        startSynchronization(target, configDiffWithHashes, LOCAL_CONFIG, SERVER_CONFIG, TRACK_PROGRESS_HANDLER);
+        return;
+    }
+    log.debug(`Sending IPC event '${RendererIpcEvents.POSSIBLE_FULL_VERIFICATION_NEEDED}' to renderer.`);
+    target.send(RendererIpcEvents.POSSIBLE_FULL_VERIFICATION_NEEDED);
+}
+
+async function startSynchronization(target: any, configDiff: ConfigDiff, localConfig: LocalConfig, serverConfig: ServerConfig,
+    trackProgressHandler: (info: TrackingInfo) => void)
+{
     log.debug(`Sending IPC event '${RendererIpcEvents.START_SYNCHRONIZATION}' to renderer.`);
     target.send(RendererIpcEvents.START_SYNCHRONIZATION);
-    LOCAL_CONFIG = await WharfClient.synchronizeLocalConfig(LOCAL_CONFIG, SERVER_CONFIG, trackProgressHandler);
+    LOCAL_CONFIG = await WharfClient.synchronizeLocalConfig(configDiff, localConfig, serverConfig, trackProgressHandler);
 }
 
 function bootstrapNeeded(window: BrowserWindow) {
