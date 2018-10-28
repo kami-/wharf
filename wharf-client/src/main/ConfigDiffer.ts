@@ -1,31 +1,31 @@
 import { ModFolder, ModFile, Config, subtract } from "wharf-common";
 
-type FileDiffState = "ok" | "sync" | "delete";
-type ModDiffState = "ok" | "sync" | "delete";
+type FileDiffState = "sync" | "delete";
+type ModDiffState = "sync" | "delete";
 
-interface ModDiff {
+export interface ModDiff {
     mod: string;
     state: ModDiffState;
 }
 
-interface FileDiff {
+export interface FileDiff {
     file: string;
     mod: string;
     state: FileDiffState;
 }
 
-interface ConfigDiff {
+export interface ConfigDiff {
     mods: ModDiff[];
     files: FileDiff[];
 }
 
-type ModComparator = (one: ModFolder, other: ModFolder) => boolean;
-type FileComparator = (one: ModFile, other: ModFile) => boolean;
+export type ModComparator = (one: ModFolder, other: ModFolder) => boolean;
+export type FileComparator = (one: ModFile, other: ModFile) => boolean;
 
-const compareModsByHash = (one: ModFolder, other: ModFolder) => one.hash == other.hash;
-const compareFilesByHash = (one: ModFile, other: ModFile) => one.hash == other.hash;
-const compareModsBySize = (one: ModFolder, other: ModFolder) => one.size == other.size;
-const compareFilesBySize = (one: ModFile, other: ModFile) => one.size == other.size;
+export const compareModsByHash = (one: ModFolder, other: ModFolder) => one.hash == other.hash;
+export const compareFilesByHash = (one: ModFile, other: ModFile) => one.hash == other.hash;
+export const compareModsBySize = (one: ModFolder, other: ModFolder) => one.size == other.size;
+export const compareFilesBySize = (one: ModFile, other: ModFile) => one.size == other.size;
 
 export function diffConfigs(sourceConfig: Config, targetConfig: Config,
     modComparator: ModComparator = compareModsByHash, fileComparator: FileComparator = compareFilesByHash): ConfigDiff
@@ -51,7 +51,6 @@ export function diffConfigs(sourceConfig: Config, targetConfig: Config,
                 fileDiffs.push(...syncSourceFileDiffs);
                 return;
             }
-            modDiffs.push({ mod: sourceMod.name, state: "ok" });
         });
     const targetModNames = Object.keys(targetConfig.mods);
     const sourceNames = Object.keys(sourceConfig.mods);

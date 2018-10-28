@@ -6,91 +6,13 @@ import * as https from "https";
 
 import { Client, TrackingInfo } from "basic-ftp";
 
-import { ModFolder, ModFile, Map, getModFolderFiles, getModFileStats, generateModFolders, hashMod, syncronizePromises, subtract, ServerConfig } from "wharf-common";
+import { Map, getModFolderFiles, getModFileStats, generateModFolders, hashMod, syncronizePromises, ServerConfig } from "wharf-common";
 import { WharfError } from "../common/Error";
 import { LocalConfig } from "./Config";
-
-interface ModState {
-    state: SyncState;
-    fileStates: Map<SyncState>;
-}
-
-type SyncState = "ok" | "delete" | "sync" | "add";
-
-type ModComparator = (one: ModFolder, other: ModFolder) => boolean;
-type FileComparator = (one: ModFile, other: ModFile) => boolean;
-
-const compareModsByHash = (one: ModFolder, other: ModFolder) => one.hash == other.hash;
-const compareFilesByHash = (one: ModFile, other: ModFile) => one.hash == other.hash;
-const compareModsBySize = (one: ModFolder, other: ModFolder) => one.size == other.size;
-const compareFilesBySize = (one: ModFile, other: ModFile) => one.size == other.size;
-
-function getModStates(localConfig: LocalConfig, serverConfig: ServerConfig,
-    modComparator: ModComparator = compareModsByHash, fileComparator: FileComparator = compareFilesByHash)
-{
-    const modStates: Map<ModState> = {};
-    Object
-        .keys(localConfig.mods)
-        .map(key => localConfig.mods[key])
-        .forEach(localMod => {
-            const serverMod = serverConfig.mods[localMod.name];
-            if (!serverMod) {
-                modStates[localMod.name] = { state: "delete", fileStates: {} };
-                return;
-            }
-            if (modComparator(serverMod, localMod)) {
-                const fileStates: Map<SyncState> = {};
-                filesToSync(serverMod, localMod, fileComparator)
-                    .reduce((fsts, file) => {
-                        fsts[file] = "sync";
-                        return fsts;
-                    }, fileStates);
-                filesToDelete(serverMod, localMod)
-                    .reduce((fsts, file) => {
-                        fsts[file] = "delete";
-                        return fsts;
-                    }, fileStates);
-                modStates[localMod.name] = {
-                    state: "sync",
-                    fileStates: fileStates
-                };
-                return;
-            }
-            modStates[localMod.name] = { state: "ok", fileStates: {} };
-        });
-    const serverModNames = Object.keys(serverConfig.mods);
-    const localModNames = Object.keys(localConfig.mods);
-    subtract(serverModNames, localModNames)
-        .forEach(modName => {
-            modStates[modName] = { state: "add", fileStates: {} };
-        });
-    return modStates;
-}
-
-function filesToSync(serverMod: ModFolder, localMod: ModFolder, fileComparator: FileComparator) {
-    const modifiedFiles = localMod.modFiles
-        .filter(file => shouldDownloadFile(file, serverMod.modFiles, fileComparator))
-        .map(file => file.relativePath);
-    const serverFiles = serverMod.modFiles.map(file => file.relativePath);
-    const localFiles = localMod.modFiles.map(file => file.relativePath);
-    return modifiedFiles.concat(subtract(serverFiles, localFiles));
-}
-
-function filesToDelete(serverMod: ModFolder, localMod: ModFolder) {
-    const serverFiles = serverMod.modFiles.map(file => file.relativePath);
-    const localFiles = localMod.modFiles.map(file => file.relativePath);
-    return subtract(localFiles, serverFiles);
-}
-
-
-function shouldDownloadFile(localFile: ModFile, serverModFiles: ModFile[], fileComparator: FileComparator) {
-    return serverModFiles
-        .filter(file => fileComparator(file, localFile))
-        .length == 0;
-}
+import { diffConfigs, ModComparator, FileComparator, compareModsBySize, compareFilesBySize, compareFilesByHash, compareModsByHash, ModDiff } from "./ConfigDiffer";
 
 export async function synchronizeConfigs(serverConfig: ServerConfig, localConfig: LocalConfig, trackProgressHandler: (info: TrackingInfo) => void = () => {}) {
-    const modStates = getModStates(localConfig, serverConfig);
+    const configDiff = diffConfigs(localConfig, serverConfig);
     const newLocalConfig: LocalConfig = {
         root: localConfig.root,
         serverConfigUrl: localConfig.serverConfigUrl,
@@ -106,8 +28,8 @@ export async function synchronizeConfigs(serverConfig: ServerConfig, localConfig
             user: serverConfig.ftp.user,
             password: serverConfig.ftp.password,
         });
-        const synchronizeModFactories = Object.keys(modStates)
-            .map(modName => () => synchronizeMod(serverConfig, newLocalConfig, ftp, modName, modStates[modName]));
+        const synchronizeModFactories = configDiff.mods
+            .map(modDiff => () => synchronizeMod(serverConfig, newLocalConfig, ftp, modDiff));
         await syncronizePromises(synchronizeModFactories);
         return newLocalConfig;
     } catch (e) {
@@ -119,31 +41,26 @@ export async function synchronizeConfigs(serverConfig: ServerConfig, localConfig
     }
 }
 
-async function synchronizeMod(serverConfig: ServerConfig, newLocalConfig: LocalConfig, ftp: Client, modName: string, modState: ModState) {
-    const absoluteFolder = path.join(newLocalConfig.root, modName);
+async function synchronizeMod(serverConfig: ServerConfig, localConfig: LocalConfig, ftp: Client, modDiff: ModDiff) {
+    const modName = modDiff.mod;
+    const modAbsolutePath = path.join(localConfig.root, modName);
     const files = Object.keys(modState.fileStates);
-    if (modState.state == "ok") {
-        newLocalConfig.mods[modName] = serverConfig.mods[modName];
-        console.log(`Mod '${modName}' is OK. Nothing to do.`);
+    if (modDiff.state == "delete") {
+        await fs.remove(modAbsolutePath);
+        console.log(`Mod '${modName}' has been deleted at '${modAbsolutePath}'.`);
         return;
     }
-    if (modState.state == "delete") {
-        const pathToRemove = path.join(newLocalConfig.root, modName);
-        await fs.remove(pathToRemove);
-        console.log(`Mod '${modName}' has been deleted at '${pathToRemove}'.`);
-        return;
-    }
-    if (modState.state == "add") {
-        fs.ensureDirSync(absoluteFolder);
-        console.log(`Ensuring folder '${absoluteFolder}'.`)
+    if (modDiff.state == "sync") {
+        fs.ensureDirSync(modAbsolutePath);
+        console.log(`Ensuring folder '${modAbsolutePath}'.`)
         await ftp.cd(path.posix.join(serverConfig.ftp.root, modName));
         console.log(`Change FTP folder to '${modName}'.`);
         await ftp.downloadDir(toPosix(absoluteFolder));
         console.log(`Downloaded mod folder '${modName}'.`);
         await ftp.cd("/");
         console.log(`Change FTP folder to root.`);
-        const modFiles = await getModFolderFiles(newLocalConfig.root, modName);
-        newLocalConfig.mods[modName] = {
+        const modFiles = await getModFolderFiles(localConfig.root, modName);
+        localConfig.mods[modName] = {
             name: modName,
             size: modFiles.reduce((sum, f) => sum + f.size, 0),
             hash: hashMod(modName, modFiles),
@@ -155,16 +72,16 @@ async function synchronizeMod(serverConfig: ServerConfig, newLocalConfig: LocalC
     if (modState.state == "sync") {
         const filesToDelete = files.filter(file => modState.fileStates[file] == "delete");
         const filesToSync = files.filter(file => modState.fileStates[file] == "sync");
-        await Promise.all(filesToDelete.map(file => fs.remove(path.join(newLocalConfig.root, file))));
+        await Promise.all(filesToDelete.map(file => fs.remove(path.join(localConfig.root, file))));
         console.log(`Deleted files '${filesToDelete}' in mod '${modName}'.`);
         const downloadFileFactories = filesToSync
-        .map(file => () => downloadFile(ftp, newLocalConfig.root, serverConfig.ftp.root, file));
+        .map(file => () => downloadFile(ftp, localConfig.root, serverConfig.ftp.root, file));
         await syncronizePromises(downloadFileFactories);
         const modFiles = serverConfig.mods[modName].modFiles
             .filter(modFile => !modState.fileStates.hasOwnProperty(modFile.relativePath));
-        const syncedModFiles = await Promise.all(filesToSync.map(file => getModFileStats(newLocalConfig.root, file)));
+        const syncedModFiles = await Promise.all(filesToSync.map(file => getModFileStats(localConfig.root, file)));
         modFiles.push(...syncedModFiles);
-        newLocalConfig.mods[modName] = {
+        localConfig.mods[modName] = {
             name: modName,
             size: modFiles.reduce((sum, f) => sum + f.size, 0),
             hash: hashMod(modName, modFiles),
@@ -190,13 +107,8 @@ function toPosix(p: string) {
 }
 
 function needsSync(localConfig: LocalConfig, serverConfig: ServerConfig, modComparator: ModComparator, fileComparator: FileComparator) {
-    const modStates = getModStates(localConfig, serverConfig, modComparator, fileComparator);
-    return Object.keys(modStates)
-        .findIndex(mod => needsDownload(modStates[mod].state)) != -1;
-}
-
-function needsDownload(state: SyncState) {
-    return state == "sync" || state == "add";
+    const configDiff = diffConfigs(localConfig, serverConfig, modComparator, fileComparator);
+    return configDiff.files.length == 0;
 }
 
 export function needsSyncBySize(localConfig: LocalConfig, serverConfig: ServerConfig) {
@@ -207,7 +119,7 @@ export function needsSyncByHashes(localConfig: LocalConfig, serverConfig: Server
     return needsSync(localConfig, serverConfig, compareModsByHash, compareFilesByHash);
 }
 
-export async function regenerateConfigWithoutHashes(localConfig: LocalConfig): Promise<LocalConfig> {
+export async function regenerateLocalConfigWithoutHashes(localConfig: LocalConfig): Promise<LocalConfig> {
     return {
         ...localConfig,
         mods: await generateModFolders(localConfig.root, () => "", () => Promise.resolve(""))
@@ -229,7 +141,7 @@ export function bytesToBeDownloaded(modStates: Map<ModState>, serverConfig: Serv
         }, 0);
 }
 
-export async function bootstrapConfig(serverConfigUrl: string, serverConfig: ServerConfig, root: string): Promise<LocalConfig> {
+export async function bootstrapLocalConfig(serverConfigUrl: string, serverConfig: ServerConfig, root: string): Promise<LocalConfig> {
     return {
         root: root,
         serverConfigUrl: serverConfigUrl,
