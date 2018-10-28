@@ -3,9 +3,9 @@ import * as path from "path";
 
 import * as program from "commander";
 
-import { Config, generateModFolders } from "wharf-common";
+import { ServerConfig, generateModFolders } from "wharf-common";
 
-async function generateConfig(config: Config) {
+async function generateConfig(config: ServerConfig) {
     config.mods = await generateModFolders(config.root);
 }
 
@@ -23,7 +23,7 @@ if (!program.ftpHost || !program.ftpUser || !program.ftpPassword) {
     console.error("All FTP options must be provided!");
 } else {
     const configFilePath = path.normalize(program.config || "./config.json");
-    const config: Config = {
+    const config: ServerConfig = {
         root: path.normalize(program.root || "."),
         ftp: {
             root: program.ftpRoot || "",

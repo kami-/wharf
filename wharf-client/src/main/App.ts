@@ -4,15 +4,16 @@ import { BrowserWindow, ipcMain } from "electron";
 import * as log from "electron-log";
 import * as fs from "fs-extra";
 
-import { Config } from "wharf-common";
+import { ServerConfig } from "wharf-common";
+import { LocalConfig } from "./Config";
 import { isError } from "../common/Error";
 import * as WharfClient from "./WharfClient";
 import { Settings, readSettings, writeSettings } from "./Settings";
 import { MainIpcEvents, RendererIpcEvents } from "../common/IpcEvents";
 import { TrackingInfo } from "basic-ftp";
 
-let LOCAL_CONFIG: Config | null = null;
-let SERVER_CONFIG: Config | null = null;
+let LOCAL_CONFIG: LocalConfig | null = null;
+let SERVER_CONFIG: ServerConfig | null = null;
 let settings: Settings;
 let trackProgressHandler: ((info: TrackingInfo) => void) | null = null;
 
@@ -62,19 +63,22 @@ export function shutdown() {
     }
 }
 
-function getLocalWharfConfigPath(localConfig: Config) {
+function getLocalWharfConfigPath(localConfig: LocalConfig) {
     return path.join(localConfig.root, "wharf-config.json");
 }
 
-function writeLocalConfig(localConfig: Config) {
+function writeLocalConfig(localConfig: LocalConfig) {
     fs.ensureDirSync(localConfig.root);
     fs.writeJsonSync(getLocalWharfConfigPath(localConfig), localConfig);
 }
 
+function loadConfig(configPath: string): LocalConfig {
+    return JSON.parse(fs.readFileSync(configPath, "utf-8"));
+}
+
 async function loadExistingConfig(configPath: string) {
-    LOCAL_CONFIG = WharfClient.loadConfig(configPath);
+    LOCAL_CONFIG = loadConfig(configPath);
     log.debug(`Loaded local config from '${configPath}'.`);
-    console.log(LOCAL_CONFIG);
     SERVER_CONFIG = await WharfClient.getServerConfig(LOCAL_CONFIG.serverConfigUrl);
     log.debug(`Loaded server config from '${LOCAL_CONFIG.serverConfigUrl}'.`);
 }
@@ -103,9 +107,9 @@ async function synchronizeConfigs(target: any) {
             return;
         }
     }
-    WharfClient.synchronizeConfigs(SERVER_CONFIG, LOCAL_CONFIG, trackProgressHandler);
     log.debug(`Sending IPC event '${RendererIpcEvents.START_SYNCHRONIZATION}' to renderer.`);
     target.send(RendererIpcEvents.START_SYNCHRONIZATION);
+    LOCAL_CONFIG = await WharfClient.synchronizeConfigs(SERVER_CONFIG, LOCAL_CONFIG, trackProgressHandler);
 }
 
 function bootstrapNeeded(window: BrowserWindow) {
