@@ -6,8 +6,9 @@ import * as https from "https";
 
 import { Client, TrackingInfo } from "basic-ftp";
 
-import { Config, ModFolder, ModFile, Map, getModFolderFiles, getModFileStats, generateModFolders, hashMod, syncronizePromises, subtract } from "wharf-common";
+import { ModFolder, ModFile, Map, getModFolderFiles, getModFileStats, generateModFolders, hashMod, syncronizePromises, subtract, ServerConfig } from "wharf-common";
 import { WharfError } from "../common/Error";
+import { LocalConfig } from "./Config";
 
 interface ModState {
     state: SyncState;
@@ -24,7 +25,7 @@ const compareFilesByHash = (one: ModFile, other: ModFile) => one.hash == other.h
 const compareModsBySize = (one: ModFolder, other: ModFolder) => one.size == other.size;
 const compareFilesBySize = (one: ModFile, other: ModFile) => one.size == other.size;
 
-function getModStates(localConfig: Config, serverConfig: Config,
+function getModStates(localConfig: LocalConfig, serverConfig: ServerConfig,
     modComparator: ModComparator = compareModsByHash, fileComparator: FileComparator = compareFilesByHash)
 {
     const modStates: Map<ModState> = {};
@@ -88,12 +89,11 @@ function shouldDownloadFile(localFile: ModFile, serverModFiles: ModFile[], fileC
         .length == 0;
 }
 
-export async function synchronizeConfigs(serverConfig: Config, localConfig: Config, trackProgressHandler: (info: TrackingInfo) => void = () => {}) {
+export async function synchronizeConfigs(serverConfig: ServerConfig, localConfig: LocalConfig, trackProgressHandler: (info: TrackingInfo) => void = () => {}) {
     const modStates = getModStates(localConfig, serverConfig);
-    const newLocalConfig: Config = {
+    const newLocalConfig: LocalConfig = {
         root: localConfig.root,
-
-        serverConfigUrl: serverConfig.serverConfigUrl,
+        serverConfigUrl: localConfig.serverConfigUrl,
         ftp: serverConfig.ftp,
         mods: {}
     };
@@ -119,7 +119,7 @@ export async function synchronizeConfigs(serverConfig: Config, localConfig: Conf
     }
 }
 
-async function synchronizeMod(serverConfig: Config, newLocalConfig: Config, ftp: Client, modName: string, modState: ModState) {
+async function synchronizeMod(serverConfig: ServerConfig, newLocalConfig: LocalConfig, ftp: Client, modName: string, modState: ModState) {
     const absoluteFolder = path.join(newLocalConfig.root, modName);
     const files = Object.keys(modState.fileStates);
     if (modState.state == "ok") {
@@ -189,7 +189,7 @@ function toPosix(p: string) {
     return p.replace(/\\/g, path.posix.sep);
 }
 
-function needsSync(localConfig: Config, serverConfig: Config, modComparator: ModComparator, fileComparator: FileComparator) {
+function needsSync(localConfig: LocalConfig, serverConfig: ServerConfig, modComparator: ModComparator, fileComparator: FileComparator) {
     const modStates = getModStates(localConfig, serverConfig, modComparator, fileComparator);
     return Object.keys(modStates)
         .findIndex(mod => needsDownload(modStates[mod].state)) != -1;
@@ -199,22 +199,22 @@ function needsDownload(state: SyncState) {
     return state == "sync" || state == "add";
 }
 
-export function needsSyncBySize(localConfig: Config, serverConfig: Config) {
+export function needsSyncBySize(localConfig: LocalConfig, serverConfig: ServerConfig) {
     return needsSync(localConfig, serverConfig, compareModsBySize, compareFilesBySize);
 }
 
-export function needsSyncByHashes(localConfig: Config, serverConfig: Config) {
+export function needsSyncByHashes(localConfig: LocalConfig, serverConfig: ServerConfig) {
     return needsSync(localConfig, serverConfig, compareModsByHash, compareFilesByHash);
 }
 
-export async function regenerateConfigWithoutHashes(localConfig: Config): Promise<Config> {
+export async function regenerateConfigWithoutHashes(localConfig: LocalConfig): Promise<LocalConfig> {
     return {
         ...localConfig,
         mods: await generateModFolders(localConfig.root, () => "", () => Promise.resolve(""))
     };
 }
 
-export function bytesToBeDownloaded(modStates: Map<ModState>, serverConfig: Config) {
+export function bytesToBeDownloaded(modStates: Map<ModState>, serverConfig: ServerConfig) {
     return Object.keys(modStates)
         .filter(mod => needsDownload(modStates[mod].state))
         .reduce((sum, mod) => {
@@ -229,7 +229,7 @@ export function bytesToBeDownloaded(modStates: Map<ModState>, serverConfig: Conf
         }, 0);
 }
 
-export async function bootstrapConfig(serverConfigUrl: string, serverConfig: Config, root: string): Promise<Config> {
+export async function bootstrapConfig(serverConfigUrl: string, serverConfig: ServerConfig, root: string): Promise<LocalConfig> {
     return {
         root: root,
         serverConfigUrl: serverConfigUrl,
@@ -238,7 +238,7 @@ export async function bootstrapConfig(serverConfigUrl: string, serverConfig: Con
     };
 }
 
-export function getServerConfig(serverConfigUrl: string): Promise<Config> {
+export function getServerConfig(serverConfigUrl: string): Promise<ServerConfig> {
     return new Promise((resolve, reject) => {
         https.get(serverConfigUrl, resp => {
             let data = "";
@@ -248,8 +248,4 @@ export function getServerConfig(serverConfigUrl: string): Promise<Config> {
             reject(new WharfError("failed-to-get-server-config", err));
         });
     });
-}
-
-export function loadConfig(configPath: string): Config {
-    return JSON.parse(fs.readFileSync(configPath, "utf-8"));
 }
