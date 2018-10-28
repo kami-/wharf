@@ -86,7 +86,7 @@ async function loadExistingConfig(configPath: string) {
 async function bootstrapConfig(localRootPath: string, serverConfigUrl: string) {
     SERVER_CONFIG = await WharfClient.getServerConfig(serverConfigUrl);
     log.debug(`Loaded server config from '${serverConfigUrl}'.`);
-    LOCAL_CONFIG = await WharfClient.bootstrapConfig(serverConfigUrl, SERVER_CONFIG, localRootPath);
+    LOCAL_CONFIG = await WharfClient.bootstrapLocalConfig(serverConfigUrl, SERVER_CONFIG, localRootPath);
     log.debug(`Bootstraped locals config for '${localRootPath}'.`);
 }
 
@@ -95,7 +95,7 @@ async function synchronizeConfigs(target: any) {
         log.error(`Unable to synchronize, missing configs or track progress handler!`);
         return;
     }
-    const localConfigWithoutHashes = await WharfClient.regenerateConfigWithoutHashes(LOCAL_CONFIG);
+    const localConfigWithoutHashes = await WharfClient.regenerateLocalConfigWithoutHashes(LOCAL_CONFIG);
     const needsSyncBySize = WharfClient.needsSyncBySize(localConfigWithoutHashes, SERVER_CONFIG);
     log.debug(`Client needs sync by size comparison '${needsSyncBySize}'.`);
     if (!needsSyncBySize) {
