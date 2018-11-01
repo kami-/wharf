@@ -12,6 +12,7 @@ import { Settings, readSettings, writeSettings } from "./Settings";
 import { MainIpcEvents, RendererIpcEvents } from "../common/IpcEvents";
 import { TrackingInfo } from "basic-ftp";
 import { diffConfigs, diffConfigsBySize, ConfigDiff } from "./ConfigDiffer";
+import { launchArma3 } from "./Launcher";
 
 let LOCAL_CONFIG: LocalConfig | null = null;
 let SERVER_CONFIG: ServerConfig | null = null;
@@ -29,6 +30,18 @@ export function registerIpcHandlers() {
             log.error(e);
             log.debug(`Sending IPC event '${RendererIpcEvents.BOOTSTRAP_FAILED}' to renderer.`);
             event.sender.send(RendererIpcEvents.BOOTSTRAP_FAILED);
+        }
+    });
+
+    ipcMain.on(MainIpcEvents.LAUNCH_GAME, async () => {
+        if (!LOCAL_CONFIG) { return; }
+        try {
+            const defaultArgs = ["-world=empty", "-noSplash", "-noFilePatching"];
+            log.debug(`Launching A3 with arguments '${defaultArgs}' from root '${LOCAL_CONFIG.root}' using mods '${Object.keys(LOCAL_CONFIG.mods)}'!`);
+            launchArma3(defaultArgs, LOCAL_CONFIG.root, Object.values(LOCAL_CONFIG.mods));
+        } catch (e) {
+            log.error(`Launching A3 failed!`);
+            log.error(e);
         }
     });
 }

@@ -20,6 +20,7 @@
     "@types/react-router": "4.0.31",
     "@types/recursive-readdir": "2.2.0",
     "@types/redux": "3.6.0",
+    "@types/winreg": "1.2.30",
     "electron": "3.0.0",
     "electron-builder": "20.28.4",
     "electron-webpack": "2.3.1",
@@ -44,6 +45,7 @@
     "react-router": "4.3.1",
     "react-router-dom": "4.3.1",
     "redux": "4.0.0",
-    "source-map-support": "0.5.9"
+    "source-map-support": "0.5.9",
+    "winreg": "1.2.4"
   }
 }
