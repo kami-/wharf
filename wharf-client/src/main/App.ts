@@ -124,8 +124,8 @@ async function synchronizeLocalConfig(target: any) {
         startSynchronization(target, configDiffWithHashes, LOCAL_CONFIG, SERVER_CONFIG, TRACK_PROGRESS_HANDLER);
         return;
     }
-    log.debug(`Sending IPC event '${RendererIpcEvents.POSSIBLE_FULL_VERIFICATION_NEEDED}' to renderer.`);
-    target.send(RendererIpcEvents.POSSIBLE_FULL_VERIFICATION_NEEDED);
+    log.debug(`Sending IPC event '${RendererIpcEvents.DOWNLOAD_FINISHED}' to renderer.`);
+    target.send(RendererIpcEvents.DOWNLOAD_FINISHED);
 }
 
 async function startSynchronization(target: any, configDiff: ConfigDiff, localConfig: LocalConfig, serverConfig: ServerConfig,

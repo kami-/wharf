@@ -16,10 +16,9 @@ export async function launchArma3(args: string[], repoRootPath: string, mods: Mo
     const modArg = `"-mod=${modArgValue}"`;
     const processArgs = args.concat(modArg);
     const a3Process = spawn(a3Exe, processArgs, {
-        detached: true,
         cwd: a3InstallPath,
-        shell: false,
-        windowsHide: true
+        detached: true,
+        shell: false
     });
     a3Process.unref();
 }

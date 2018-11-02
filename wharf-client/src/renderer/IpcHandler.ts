@@ -25,9 +25,14 @@ export function registerIpcHandlers() {
     ipcRenderer.on(RendererIpcEvents.DOWNLOAD_FINISHED, () => {
         log.debug(`Renderer received IPC event '${RendererIpcEvents.DOWNLOAD_FINISHED}'.`);
         Store.dispatch(downloadFinished());
+        history.push("/launcher");
     });
 }
 
 export function bootrapConfig(localRootPath: string, serverConfigUrl: string) {
     ipcRenderer.send(MainIpcEvents.BOOTSTRAP_CONFIG, localRootPath, serverConfigUrl);
+}
+
+export function launchGame() {
+    ipcRenderer.send(MainIpcEvents.LAUNCH_GAME);
 }

@@ -9,6 +9,7 @@ import BootstrapForm from "./components/BootstrapForm";
 import ConnectedSyncStatusReporter from "./components/ConnectedSyncStatusReporter";
 import Store, { history } from "./Store";
 import { registerIpcHandlers } from "./IpcHandler";
+import Launcher from "./components/Launcher";
 
 registerIpcHandlers();
 
@@ -19,6 +20,7 @@ render(
                 <Route exact path="/" component={App} />
                 <Route path="/bootstrap" component={BootstrapForm} />
                 <Route path="/synchronize" component={ConnectedSyncStatusReporter} />
+                <Route path="/launcher" component={Launcher} />
             </Switch>
         </ConnectedRouter>
     </Provider>,
