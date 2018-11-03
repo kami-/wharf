@@ -124,8 +124,7 @@ async function synchronizeLocalConfig(target: any) {
         startSynchronization(target, configDiffWithHashes, LOCAL_CONFIG, SERVER_CONFIG, TRACK_PROGRESS_HANDLER);
         return;
     }
-    log.debug(`Sending IPC event '${RendererIpcEvents.DOWNLOAD_FINISHED}' to renderer.`);
-    target.send(RendererIpcEvents.DOWNLOAD_FINISHED);
+    downloadFinished(target);
 }
 
 async function startSynchronization(target: any, configDiff: ConfigDiff, localConfig: LocalConfig, serverConfig: ServerConfig,
@@ -135,6 +134,12 @@ async function startSynchronization(target: any, configDiff: ConfigDiff, localCo
     log.debug(`Sending IPC event '${RendererIpcEvents.START_SYNCHRONIZATION}' to renderer with args '${bytesToBeDownloaded}'.`);
     target.send(RendererIpcEvents.START_SYNCHRONIZATION, bytesToBeDownloaded);
     LOCAL_CONFIG = await WharfClient.synchronizeLocalConfig(configDiff, localConfig, serverConfig, trackProgressHandler);
+    downloadFinished(target);
+}
+
+function downloadFinished(target: any) {
+    log.debug(`Sending IPC event '${RendererIpcEvents.DOWNLOAD_FINISHED}' to renderer.`);
+    target.send(RendererIpcEvents.DOWNLOAD_FINISHED);
 }
 
 function bootstrapNeeded(window: BrowserWindow) {

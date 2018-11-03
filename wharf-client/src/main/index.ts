@@ -56,6 +56,7 @@ function createMainWindow(closedHandler: () => void) {
 
 // Security
 app.on("web-contents-created", (event, contents) => {
+    if (IS_DEVELOPMENT) { return; }
     contents.on("will-attach-webview", (event, webPreferences, params) => {
         delete webPreferences.preload;
         delete webPreferences.preloadURL;

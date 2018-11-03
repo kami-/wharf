@@ -23,7 +23,7 @@ const SyncStatusReporter = ({
             </div>
             <div>{fileBeingDownloaded}</div>
         </div>
-        <button className="button is-danger" disabled={isStopping} onClick={stopHandler}>Stop</button>
+        <button className="button is-danger is-invisible" disabled={isStopping} onClick={stopHandler}>Stop</button>
     </Frame>;
 };
 
