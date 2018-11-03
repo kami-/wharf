@@ -17,14 +17,14 @@ export function writeSettings(settings: Settings) {
     fs.writeJsonSync(getSettingsFilePath(), settings);
 }
 
-function getSettingsFilePath() {
-    return path.join(getSettingsFolder(), "settings.json");
-}
-
-function getSettingsFolder() {
+export function getSettingsFolder() {
     if (process.platform == "win32") {
         const folder = path.resolve(process.env.LOCALAPPDATA || os.homedir());
         return path.join(folder, "Wharf");
     }
     return path.join(path.resolve(os.homedir()), ".wharf");
+}
+
+function getSettingsFilePath() {
+    return path.join(getSettingsFolder(), "settings.json");
 }
