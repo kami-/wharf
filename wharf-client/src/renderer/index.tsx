@@ -1,3 +1,4 @@
+import * as log from "electron-log";
 import React from "react";
 import { render } from "react-dom";
 import { Switch, Route } from "react-router";
@@ -10,6 +11,18 @@ import ConnectedSyncStatusReporter from "./components/ConnectedSyncStatusReporte
 import Store, { history } from "./Store";
 import { registerIpcHandlers } from "./IpcHandler";
 import Launcher from "./components/Launcher";
+
+const originalConsoleLog = console.log.bind(console);
+
+console.log = (...args: any[]) => {
+    log.info(args);
+    originalConsoleLog(...args);
+};
+
+window.onerror = () => {
+    log.error(...arguments)
+    originalConsoleLog(...arguments);
+};
 
 registerIpcHandlers();
 

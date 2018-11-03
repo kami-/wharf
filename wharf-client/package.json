@@ -11,6 +11,13 @@
   },
   "author": "ARK",
   "license": "MIT",
+  "build": {
+    "appId": "org.ark-group.wharf",
+    "productName": "Wharf",
+    "win": {
+      "target": "portable"
+    }
+  },
   "devDependencies": {
     "@types/electron": "1.6.10",
     "@types/fs-extra": "5.0.4",

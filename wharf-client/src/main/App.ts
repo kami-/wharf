@@ -49,7 +49,7 @@ export function registerIpcHandlers() {
 export async function initialize(window: BrowserWindow) {
     TRACK_PROGRESS_HANDLER = createTrackProgressHandler(window);
     settings = readSettings();
-    log.debug(`Read settings '${settings}'.`);
+    log.debug(`Read settings '${JSON.stringify(settings)}'.`);
     if (settings.lastConfigPath) {
         try {
             await loadExistingConfig(settings.lastConfigPath);
@@ -112,7 +112,7 @@ async function synchronizeLocalConfig(target: any) {
     const localConfigWithoutHashes = await WharfClient.generateLocalConfigWithoutHashes(LOCAL_CONFIG);
     const configDiffWithoutHashes = diffConfigsBySize(localConfigWithoutHashes, SERVER_CONFIG);
     const needsSyncBySize = WharfClient.needsSync(configDiffWithoutHashes);
-    log.debug(`Client needs sync by size comparison '${configDiffWithoutHashes}'.`);
+    log.debug(`Client needs sync by size comparison '${needsSyncBySize}'.`);
     if (needsSyncBySize) {
         startSynchronization(target, configDiffWithoutHashes, LOCAL_CONFIG, SERVER_CONFIG, TRACK_PROGRESS_HANDLER);
         return;
