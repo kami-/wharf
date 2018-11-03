@@ -19,16 +19,11 @@ export interface ConfigDiff {
     files: FileDiff[];
 }
 
-export type ModComparator = (one: ModFolder, other: ModFolder) => boolean;
 export type FileComparator = (one: ModFile, other: ModFile) => boolean;
-
-export const compareModsByHash = (one: ModFolder, other: ModFolder) => one.hash == other.hash;
 export const compareFilesByHash = (one: ModFile, other: ModFile) => one.hash == other.hash;
-export const compareModsBySize = (one: ModFolder, other: ModFolder) => one.size == other.size;
 export const compareFilesBySize = (one: ModFile, other: ModFile) => one.size == other.size;
 
-export function diffConfigs(sourceConfig: Config, targetConfig: Config,
-    modComparator: ModComparator = compareModsByHash, fileComparator: FileComparator = compareFilesByHash): ConfigDiff
+export function diffConfigs(sourceConfig: Config, targetConfig: Config, fileComparator: FileComparator = compareFilesByHash): ConfigDiff
 {
     const modDiffs: ModDiff[] = [];
     const fileDiffs: FileDiff[] = [];
@@ -42,15 +37,14 @@ export function diffConfigs(sourceConfig: Config, targetConfig: Config,
                 fileDiffs.push(...sourceFileDiffs);
                 return;
             }
-            if (!modComparator(targetMod, sourceMod)) {
+            const deleteSourceFileDiffs = filesToDelete(sourceMod, targetMod)
+                .map(file => ({ file: file, mod: sourceMod.name, state: <FileDiffState>"delete" }));
+            fileDiffs.push(...deleteSourceFileDiffs);
+            const syncSourceFileDiffs = filesToSync(sourceMod, targetMod, fileComparator)
+                .map(file => ({ file: file, mod: sourceMod.name, state: <FileDiffState>"sync" }));
+            fileDiffs.push(...syncSourceFileDiffs);
+            if (deleteSourceFileDiffs.length > 0 || syncSourceFileDiffs.length > 0) {
                 modDiffs.push({ mod: sourceMod.name, state: "sync" });
-                const deleteSourceFileDiffs = filesToDelete(sourceMod, targetMod)
-                    .map(file => ({ file: file, mod: sourceMod.name, state: <FileDiffState>"delete" }));
-                fileDiffs.push(...deleteSourceFileDiffs);
-                const syncSourceFileDiffs = filesToSync(sourceMod, targetMod, fileComparator)
-                    .map(file => ({ file: file, mod: sourceMod.name, state: <FileDiffState>"sync" }));
-                fileDiffs.push(...syncSourceFileDiffs);
-                return;
             }
         });
     const targetModNames = Object.keys(targetConfig.mods);
@@ -69,7 +63,7 @@ export function diffConfigs(sourceConfig: Config, targetConfig: Config,
 }
 
 export function diffConfigsBySize(sourceConfig: Config, targetConfig: Config) {
-    return diffConfigs(sourceConfig, targetConfig, compareModsBySize, compareFilesBySize);
+    return diffConfigs(sourceConfig, targetConfig, compareFilesBySize);
 }
 
 function filesToSync(sourceMod: ModFolder, targetMod: ModFolder, fileComparator: FileComparator) {
@@ -88,8 +82,6 @@ function filesToDelete(sourceMod: ModFolder, targetMod: ModFolder) {
 }
 
 function shouldDownloadFile(sourceFile: ModFile, targetModFiles: ModFile[], fileComparator: FileComparator) {
-    return targetModFiles
-        .filter(file => sourceFile.relativePath == file.relativePath)
-        .filter(file => fileComparator(file, sourceFile))
-        .length == 0;
+    const targetFile = targetModFiles.find(file => sourceFile.relativePath == file.relativePath);
+    return targetFile && !fileComparator(targetFile, sourceFile);
 }
