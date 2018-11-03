@@ -5,27 +5,15 @@ import { app, BrowserWindow, shell } from "electron";
 import * as log from "electron-log";
 
 import * as App from "./App";
-import { getSettingsFolder } from "./Settings";
+import { configureLogging } from "./Settings";
 
-log.transports.file.level = "debug";
-log.transports.console.level = "debug";
-log.transports.file.maxSize = 5 * 1024 * 1024;
-log.transports.file.file = path.join(getSettingsFolder(), getLogFileName());
-
+configureLogging();
 log.info("Starting...");
 log.info(app.getName());
 log.info(app.getVersion());
 
 const IS_DEVELOPMENT = process.env.NODE_ENV !== "production";
 let mainWindow: BrowserWindow | null;
-
-function getLogFileName() {
-    const formattedDate = new Date().toISOString()
-        .replace(/T/, "_")
-        .replace(/\..+/, "")
-        .replace(/:/g, "-");
-    return `wharf-log_${formattedDate}.log`;
-}
 
 function createMainWindow(closedHandler: () => void) {
     const window = new BrowserWindow({

@@ -15,7 +15,8 @@
     "appId": "org.ark-group.wharf",
     "productName": "Wharf",
     "win": {
-      "target": "portable"
+      "target": "portable",
+      "icon": "resources/wharf.ico"
     }
   },
   "devDependencies": {
