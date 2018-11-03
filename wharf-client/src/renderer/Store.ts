@@ -49,13 +49,21 @@ function reducer(state: StoreState | undefined, action: AnyAction): StoreState {
         return initialState
     };
     switch (action.type) {
+        case "start-synchronization":
+            return {
+                ...state,
+                synchronization: {
+                    ...state.synchronization,
+                    toBeDownloaded: <number>action.toBeDownloaded
+                }
+            };
         case "download-progress":
             return {
                 ...state,
                 synchronization: {
                     ...state.synchronization,
-                    downloaded: <number>action.bytes,
-                    fileBeingDownloaded: <string>action.name
+                    downloaded: <number>action.downloaded,
+                    fileBeingDownloaded: <string>action.file
                 }
             };
 

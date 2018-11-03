@@ -131,8 +131,9 @@ async function synchronizeLocalConfig(target: any) {
 async function startSynchronization(target: any, configDiff: ConfigDiff, localConfig: LocalConfig, serverConfig: ServerConfig,
     trackProgressHandler: (info: TrackingInfo) => void)
 {
-    log.debug(`Sending IPC event '${RendererIpcEvents.START_SYNCHRONIZATION}' to renderer.`);
-    target.send(RendererIpcEvents.START_SYNCHRONIZATION);
+    const bytesToBeDownloaded = WharfClient.bytesToBeDownloaded(configDiff, serverConfig);
+    log.debug(`Sending IPC event '${RendererIpcEvents.START_SYNCHRONIZATION}' to renderer with args '${bytesToBeDownloaded}'.`);
+    target.send(RendererIpcEvents.START_SYNCHRONIZATION, bytesToBeDownloaded);
     LOCAL_CONFIG = await WharfClient.synchronizeLocalConfig(configDiff, localConfig, serverConfig, trackProgressHandler);
 }
 

@@ -3,6 +3,7 @@ import { TrackingInfo } from "basic-ftp";
 
 export type ActionType
     = "load-config"
+    | "start-synchronization"
     | "stop-download"
     | "download-progress"
     | "download-finished";
@@ -15,6 +16,13 @@ export function loadConfig(localRootPath: string, serverConfigUrl: string): AnyA
     };
 }
 
+export function startSynchronization(toBeDownloaded: number): AnyAction {
+    return {
+        type: "start-synchronization",
+        toBeDownloaded: toBeDownloaded
+    }
+}
+
 export function stopDownload(): Action<ActionType> {
     return {
         type: "stop-download"
@@ -23,8 +31,9 @@ export function stopDownload(): Action<ActionType> {
 
 export function downloadProgress(info: TrackingInfo): AnyAction {
     return {
-        ...info,
-        type: "download-progress"
+        type: "download-progress",
+        downloaded: info.bytesOverall,
+        file: info.name
     };
 }
 

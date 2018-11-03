@@ -91,22 +91,14 @@ export async function generateLocalConfigWithoutHashes(localConfig: LocalConfig)
     };
 }
 
-/*
-export function bytesToBeDownloaded(modStates: Map<ModState>, serverConfig: ServerConfig) {
-    return Object.keys(modStates)
-        .filter(mod => needsDownload(modStates[mod].state))
-        .reduce((sum, mod) => {
-            const modState = modStates[mod];
-            if (modState.state == "sync") {
-                return sum + serverConfig.mods[mod].modFiles
-                    .filter(file => modState.fileStates[file.relativePath] && needsDownload(modState.fileStates[file.relativePath]))
-                    .map(file => file.size)
-                    .reduce((fileSum, size) => fileSum + size, 0);
-            }
-            return sum + serverConfig.mods[mod].size;
+export function bytesToBeDownloaded(configDiff: ConfigDiff, serverConfig: ServerConfig) {
+    return configDiff.files
+        .filter(diff => diff.state == "sync")
+        .reduce((sum, diff) => {
+            const modFile = serverConfig.mods[diff.mod].modFiles.find(file => file.relativePath == diff.file);
+            return sum + (modFile ? modFile.size : 0);
         }, 0);
 }
-*/
 
 export async function bootstrapLocalConfig(serverConfigUrl: string, serverConfig: ServerConfig, root: string): Promise<LocalConfig> {
     return {

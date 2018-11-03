@@ -17,18 +17,24 @@ const SyncStatusReporter = ({
     return <Frame>
         <div>
             <div>
-                <span>{`${toMib(downloaded)} MiB`}</span>
+                <span>{`${formatSize(downloaded)}`}</span>
                 <span> / </span>
-                <span>{`${toMib(toBeDownloaded)} MiB`}</span>
+                <span>{`${formatSize(toBeDownloaded)}`}</span>
             </div>
-            <div>Downloading: <span>{fileBeingDownloaded}</span></div>
+            <div>{fileBeingDownloaded}</div>
         </div>
         <button className="button is-danger" disabled={isStopping} onClick={stopHandler}>Stop</button>
     </Frame>;
 };
 
-function toMib(sizeInBytes: number) {
-    return Math.round(sizeInBytes / 1024 / 1024 * 100) / 100;
+function formatSize(sizeInBytes: number) {
+    let unit = "MiB";
+    let divider = 1024 * 1024;
+    if (sizeInBytes < 1024 * 1024) {
+        unit = "KiB";
+        divider = 1024;
+    }
+    return Math.round(sizeInBytes / divider * 100) / 100 + " " + unit;
 }
 
 export default SyncStatusReporter;
