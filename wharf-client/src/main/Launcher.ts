@@ -6,12 +6,13 @@ import Registry from "winreg";
 import * as fs from "fs-extra";
 import { ModFolder } from "wharf-common";
 
-export async function launchArma3(args: string[], repoRootPath: string, mods: ModFolder[]) {
+export async function launchArma3(args: string[], repoRootPath: string, mods: ModFolder[], extraMods: string[]) {
     const a3InstallPath = await getArma3InstallPath();
     deployUserConfig(a3InstallPath, repoRootPath, mods);
     const a3Exe = path.join(a3InstallPath, "arma3_x64.exe");
     const modArgValue = mods
         .map(mod => path.join(repoRootPath, mod.name))
+        .concat(extraMods)
         .join(";");
     const modArg = `"-mod=${modArgValue}"`;
     const processArgs = args.concat(modArg);

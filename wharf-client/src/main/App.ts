@@ -38,8 +38,9 @@ export function registerIpcHandlers() {
         if (!LOCAL_CONFIG) { return; }
         try {
             const defaultArgs = ["-world=empty", "-noSplash", "-noFilePatching"];
-            log.debug(`Launching A3 with arguments '${defaultArgs}' from root '${LOCAL_CONFIG.root}' using mods '${Object.keys(LOCAL_CONFIG.mods)}'!`);
-            launchArma3(defaultArgs, LOCAL_CONFIG.root, Object.values(LOCAL_CONFIG.mods));
+            const args = defaultArgs.concat(SETTINGS.extraStartupParams);
+            log.debug(`Launching A3 with arguments '${args}' from root '${LOCAL_CONFIG.root}' using mods '${Object.keys(LOCAL_CONFIG.mods)}' and extra mods '${SETTINGS.extraMods}!`);
+            launchArma3(args, LOCAL_CONFIG.root, Object.values(LOCAL_CONFIG.mods), SETTINGS.extraMods);
         } catch (e) {
             log.error(`Launching A3 failed!`);
             log.error(e);
