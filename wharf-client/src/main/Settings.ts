@@ -4,13 +4,15 @@ import * as os from "os";
 import * as fs from "fs-extra";
 import * as log from "electron-log";
 
-export interface Settings {
-    lastConfigPath: string | null;
-}
+import { Settings } from "../common/Settings";
 
 export function readSettings(): Settings {
     const settings: Settings | null = fs.readJSONSync(getSettingsFilePath(), { throws: false });
-    return settings || { lastConfigPath: null };
+    return settings || {
+        lastConfigPath: null,
+        extraMods: [],
+        extraStartupParams: []
+    };
 }
 
 export function writeSettings(settings: Settings) {

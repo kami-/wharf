@@ -8,15 +8,16 @@ import { ServerConfig } from "wharf-common";
 import { LocalConfig } from "./Config";
 import { isError } from "../common/Error";
 import * as WharfClient from "./WharfClient";
-import { Settings, readSettings, writeSettings } from "./Settings";
+import { readSettings, writeSettings } from "./Settings";
 import { MainIpcEvents, RendererIpcEvents } from "../common/IpcEvents";
 import { TrackingInfo } from "basic-ftp";
 import { diffConfigs, diffConfigsBySize, ConfigDiff } from "./ConfigDiffer";
 import { launchArma3 } from "./Launcher";
+import { Settings } from "../common/Settings";
 
 let LOCAL_CONFIG: LocalConfig | null = null;
 let SERVER_CONFIG: ServerConfig | null = null;
-let settings: Settings;
+let SETTINGS: Settings;
 let TRACK_PROGRESS_HANDLER: ((info: TrackingInfo) => void) | null = null;
 
 export function registerIpcHandlers() {
@@ -44,15 +45,21 @@ export function registerIpcHandlers() {
             log.error(e);
         }
     });
+
+    ipcMain.on(MainIpcEvents.UPDATE_SETTINGS, async (event: any, settings: Settings) => {
+        SETTINGS = settings;
+        log.debug(`Updating settings from renderer with '${JSON.stringify(settings)}!`);
+    });
 }
 
 export async function initialize(window: BrowserWindow) {
     TRACK_PROGRESS_HANDLER = createTrackProgressHandler(window);
-    settings = readSettings();
-    log.debug(`Read settings '${JSON.stringify(settings)}'.`);
-    if (settings.lastConfigPath) {
+    SETTINGS = readSettings();
+    log.debug(`Read settings '${JSON.stringify(SETTINGS)}'.`);
+    settingsLoaded(window);
+    if (SETTINGS.lastConfigPath) {
         try {
-            await loadExistingConfig(settings.lastConfigPath);
+            await loadExistingConfig(SETTINGS.lastConfigPath);
             synchronizeLocalConfig(window.webContents);
         } catch(e) {
             if (isError(e, "failed-to-get-server-config")) {
@@ -60,7 +67,7 @@ export async function initialize(window: BrowserWindow) {
             } else {
                 bootstrapNeeded(window);
             }
-            log.error(`Failed to load existing config from '${settings.lastConfigPath}'!`);
+            log.error(`Failed to load existing config from '${SETTINGS.lastConfigPath}'!`);
             log.error(e);
         }
     } else {
@@ -70,8 +77,8 @@ export async function initialize(window: BrowserWindow) {
 
 export function shutdown() {
     if (LOCAL_CONFIG) {
-        settings.lastConfigPath = getLocalWharfConfigPath(LOCAL_CONFIG);;
-        writeSettings(settings);
+        SETTINGS.lastConfigPath = getLocalWharfConfigPath(LOCAL_CONFIG);;
+        writeSettings(SETTINGS);
         log.info(`Writing local config to '${LOCAL_CONFIG.root}'.`);
         writeLocalConfig(LOCAL_CONFIG);
     }
@@ -135,6 +142,11 @@ async function startSynchronization(target: any, configDiff: ConfigDiff, localCo
     target.send(RendererIpcEvents.START_SYNCHRONIZATION, bytesToBeDownloaded);
     LOCAL_CONFIG = await WharfClient.synchronizeLocalConfig(configDiff, localConfig, serverConfig, trackProgressHandler);
     downloadFinished(target);
+}
+
+function settingsLoaded(window: BrowserWindow) {
+    log.debug(`Sending IPC event '${RendererIpcEvents.SETTINGS_LOADED}' to renderer with args '${JSON.stringify(SETTINGS)}'.`);
+    window.webContents.send(RendererIpcEvents.SETTINGS_LOADED, SETTINGS);
 }
 
 function downloadFinished(target: any) {

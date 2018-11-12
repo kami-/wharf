@@ -1,6 +1,7 @@
 import { createHashHistory } from "history";
 import { applyMiddleware, compose, createStore, AnyAction } from "redux";
 import { connectRouter, routerMiddleware } from "connected-react-router";
+import { Settings } from "../common/Settings";
 
 export const history = createHashHistory();
 
@@ -16,9 +17,13 @@ export interface SynchronizationState {
     isStopping: boolean;
 }
 
+export interface SettingsState extends Settings {
+}
+
 export interface StoreState {
     bootstrapForm: BootstrapFormState;
     synchronization: SynchronizationState;
+    settings: SettingsState;
 }
 
 const initialState: StoreState = {
@@ -31,6 +36,11 @@ const initialState: StoreState = {
         fileBeingDownloaded: "",
         isDownloading: false,
         isStopping: false
+    },
+    settings: {
+        lastConfigPath: "",
+        extraMods: [],
+        extraStartupParams: [],
     }
 };
 
@@ -49,6 +59,13 @@ function reducer(state: StoreState | undefined, action: AnyAction): StoreState {
         return initialState
     };
     switch (action.type) {
+        case "settings-loaded": {
+            return {
+                ...state,
+                settings: action.settings
+            };
+        }
+
         case "start-synchronization":
             return {
                 ...state,
@@ -73,6 +90,49 @@ function reducer(state: StoreState | undefined, action: AnyAction): StoreState {
                 synchronization: {
                     ...state.synchronization,
                     isDownloading: false
+                }
+            };
+
+        case "update-last-config-path":
+            return {
+                ...state,
+                settings: {
+                    ...state.settings,
+                    lastConfigPath: action.lastConfigPath
+                }
+            };
+
+        case "add-extra-mod":
+            return {
+                ...state,
+                settings: {
+                    ...state.settings,
+                    extraMods: state.settings.extraMods.concat(action.mod)
+                }
+            };
+        case "remove-extra-mod":
+            return {
+                ...state,
+                settings: {
+                    ...state.settings,
+                    extraMods: state.settings.extraMods.filter(mod => mod != action.mod)
+                }
+            };
+
+        case "add-extra-startup-param":
+            return {
+                ...state,
+                settings: {
+                    ...state.settings,
+                    extraStartupParams: state.settings.extraStartupParams.concat(action.param)
+                }
+            };
+        case "remove-extra-startup-param":
+            return {
+                ...state,
+                settings: {
+                    ...state.settings,
+                    extraStartupParams: state.settings.extraStartupParams.filter(param => param != action.param)
                 }
             };
 

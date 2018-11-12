@@ -3,10 +3,16 @@ import * as log from "electron-log";
 
 import { MainIpcEvents, RendererIpcEvents } from "../common/IpcEvents";
 import Store, { history } from "./Store";
-import { downloadProgress, downloadFinished, startSynchronization } from "./Actions";
+import { downloadProgress, downloadFinished, startSynchronization, settingsLoaded } from "./Actions";
 import { TrackingInfo } from "basic-ftp";
+import { Settings } from "../common/Settings";
 
 export function registerIpcHandlers() {
+    ipcRenderer.on(RendererIpcEvents.SETTINGS_LOADED, (event: any, settings: Settings) => {
+        log.debug(`Renderer received IPC event '${RendererIpcEvents.SETTINGS_LOADED}' with args '${settings}'.`);
+        Store.dispatch(settingsLoaded(settings));
+    });
+
     ipcRenderer.on(RendererIpcEvents.BOOTSTRAP_NEEDED, () => {
         log.debug(`Renderer received IPC event '${RendererIpcEvents.BOOTSTRAP_NEEDED}'.`);
         history.push("/bootstrap");
@@ -36,4 +42,8 @@ export function bootrapConfig(localRootPath: string, serverConfigUrl: string) {
 
 export function launchGame() {
     ipcRenderer.send(MainIpcEvents.LAUNCH_GAME);
+}
+
+export function updateSettings(settings: Settings) {
+    ipcRenderer.send(MainIpcEvents.UPDATE_SETTINGS, settings);
 }

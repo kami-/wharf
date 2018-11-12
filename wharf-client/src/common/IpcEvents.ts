@@ -1,10 +1,12 @@
 export enum MainIpcEvents {
     LOAD_CONFIG = "load-config",
     BOOTSTRAP_CONFIG = "bootstrap-config",
-    LAUNCH_GAME = "launch-game"
+    LAUNCH_GAME = "launch-game",
+    UPDATE_SETTINGS = "update-settings"
 }
 
 export enum RendererIpcEvents {
+    SETTINGS_LOADED = "settings-loaded",
     BOOTSTRAP_NEEDED = "bootstrap-needed",
     BOOTSTRAP_SUCCEEDED = "bootstrap-succeeded",
     BOOTSTRAP_FAILED = "bootstrap-failed",

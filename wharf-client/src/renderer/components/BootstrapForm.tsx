@@ -12,7 +12,7 @@ class BootstrapForm extends React.Component<{}, {}> {
         (this.localRepoRoot.current as any).webkitdirectory = true;
     }
 
-    bootstrapOnLick() {
+    bootstrapOnClick() {
         const localRepoRoot: any = this.localRepoRoot.current;
         const serverConfigUrl = this.serverConfigUrl.current;
         if (!localRepoRoot || !localRepoRoot.value) {
@@ -39,7 +39,7 @@ class BootstrapForm extends React.Component<{}, {}> {
             </div>
 
             <div className="control">
-                <button id="bootstrap-button" className="button is-primary" onClick={() => this.bootstrapOnLick()}>Setup</button>
+                <button id="bootstrap-button" className="button is-primary" onClick={() => this.bootstrapOnClick()}>Setup</button>
             </div>
         </Frame>;
     }

@@ -11,6 +11,7 @@ import ConnectedSyncStatusReporter from "./components/ConnectedSyncStatusReporte
 import Store, { history } from "./Store";
 import { registerIpcHandlers } from "./IpcHandler";
 import Launcher from "./components/Launcher";
+import ConnectedSettingsPage from "./components/ConnectedSettingsPage";
 
 const originalConsoleLog = console.log.bind(console);
 
@@ -34,6 +35,7 @@ render(
                 <Route path="/bootstrap" component={BootstrapForm} />
                 <Route path="/synchronize" component={ConnectedSyncStatusReporter} />
                 <Route path="/launcher" component={Launcher} />
+                <Route path="/settings" component={ConnectedSettingsPage} />
             </Switch>
         </ConnectedRouter>
     </Provider>,
