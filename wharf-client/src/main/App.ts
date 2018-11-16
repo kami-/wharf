@@ -7,13 +7,14 @@ import * as fs from "fs-extra";
 import { ServerConfig } from "wharf-common";
 import { LocalConfig } from "./Config";
 import { isError } from "../common/Error";
-import * as WharfClient from "./WharfClient";
+import * as Synchronizer from "./Synchronizer";
 import { readSettings, writeSettings } from "./Settings";
 import { MainIpcEvents, RendererIpcEvents } from "../common/IpcEvents";
 import { TrackingInfo } from "basic-ftp";
 import { diffConfigs, diffConfigsBySize, ConfigDiff } from "./ConfigDiffer";
 import { launchArma3 } from "./Launcher";
 import { Settings } from "../common/Settings";
+import { createCancelToken } from "./CancelToken";
 
 let LOCAL_CONFIG: LocalConfig | null = null;
 let SERVER_CONFIG: ServerConfig | null = null;
@@ -101,14 +102,14 @@ function loadConfig(configPath: string): LocalConfig {
 async function loadExistingConfig(configPath: string) {
     LOCAL_CONFIG = loadConfig(configPath);
     log.debug(`Loaded local config from '${configPath}'.`);
-    SERVER_CONFIG = await WharfClient.getServerConfig(LOCAL_CONFIG.serverConfigUrl);
+    SERVER_CONFIG = await Synchronizer.getServerConfig(LOCAL_CONFIG.serverConfigUrl);
     log.debug(`Loaded server config from '${LOCAL_CONFIG.serverConfigUrl}'.`);
 }
 
 async function bootstrapConfig(localRootPath: string, serverConfigUrl: string) {
-    SERVER_CONFIG = await WharfClient.getServerConfig(serverConfigUrl);
+    SERVER_CONFIG = await Synchronizer.getServerConfig(serverConfigUrl);
     log.debug(`Loaded server config from '${serverConfigUrl}'.`);
-    LOCAL_CONFIG = await WharfClient.bootstrapLocalConfig(serverConfigUrl, SERVER_CONFIG, localRootPath);
+    LOCAL_CONFIG = await Synchronizer.bootstrapLocalConfig(serverConfigUrl, SERVER_CONFIG, localRootPath);
     log.debug(`Bootstraped locals config for '${localRootPath}'.`);
 }
 
@@ -117,16 +118,16 @@ async function synchronizeLocalConfig(target: any) {
         log.error(`Unable to synchronize, missing configs or track progress handler!`);
         return;
     }
-    const localConfigWithoutHashes = await WharfClient.generateLocalConfigWithoutHashes(LOCAL_CONFIG);
+    const localConfigWithoutHashes = await Synchronizer.generateLocalConfigWithoutHashes(LOCAL_CONFIG);
     const configDiffWithoutHashes = diffConfigsBySize(localConfigWithoutHashes, SERVER_CONFIG);
-    const needsSyncBySize = WharfClient.needsSync(configDiffWithoutHashes);
+    const needsSyncBySize = Synchronizer.needsSync(configDiffWithoutHashes);
     log.debug(`Client needs sync by size comparison '${needsSyncBySize}'.`);
     if (needsSyncBySize) {
         startSynchronization(target, configDiffWithoutHashes, LOCAL_CONFIG, SERVER_CONFIG, TRACK_PROGRESS_HANDLER);
         return;
     }
     const configDiffWithHashes = diffConfigs(LOCAL_CONFIG, SERVER_CONFIG);
-    const needsSyncByHashes = WharfClient.needsSync(configDiffWithHashes);
+    const needsSyncByHashes = Synchronizer.needsSync(configDiffWithHashes);
     log.debug(`Client needs sync by hash comparison '${needsSyncByHashes}'.`);
     if (needsSyncByHashes) {
         startSynchronization(target, configDiffWithHashes, LOCAL_CONFIG, SERVER_CONFIG, TRACK_PROGRESS_HANDLER);
@@ -138,10 +139,14 @@ async function synchronizeLocalConfig(target: any) {
 async function startSynchronization(target: any, configDiff: ConfigDiff, localConfig: LocalConfig, serverConfig: ServerConfig,
     trackProgressHandler: (info: TrackingInfo) => void)
 {
-    const bytesToBeDownloaded = WharfClient.bytesToBeDownloaded(configDiff, serverConfig);
+    const bytesToBeDownloaded = Synchronizer.bytesToBeDownloaded(configDiff, serverConfig);
     log.debug(`Sending IPC event '${RendererIpcEvents.START_SYNCHRONIZATION}' to renderer with args '${bytesToBeDownloaded}'.`);
     target.send(RendererIpcEvents.START_SYNCHRONIZATION, bytesToBeDownloaded);
-    LOCAL_CONFIG = await WharfClient.synchronizeLocalConfig(configDiff, localConfig, serverConfig, trackProgressHandler);
+    const cancelToken = createCancelToken();
+    setTimeout(() => {
+        cancelToken.cancel();
+    }, 100);
+    LOCAL_CONFIG = await Synchronizer.synchronizeLocalConfig(configDiff, localConfig, serverConfig, cancelToken, trackProgressHandler);
     downloadFinished(target);
 }
 

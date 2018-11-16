@@ -29,6 +29,11 @@ export interface ModFolder {
     modFiles: ModFile[];
 }
 
+export interface File {
+    mod: string;
+    path: string;
+}
+
 export interface ModFile {
     relativePath: string;
     size: number;
@@ -49,6 +54,15 @@ async function getModFileStatsAbsolute(root: string, absoluteFile: string, fileH
         relativePath: toPosix(path.relative(root, absoluteFile)),
         size: stat.size,
         hash: hash
+    };
+}
+
+export function createModFolder(name: string, modFiles: ModFile[], modHasher: ModHasher = hashMod) {
+    return {
+        name: name,
+        size: modFiles.reduce((sum, f) => sum + f.size, 0),
+        hash: modHasher(name, modFiles),
+        modFiles: modFiles
     };
 }
 
@@ -90,9 +104,26 @@ export function toPosix(p: string) {
     return p.replace(/\\/g, path.posix.sep);
 }
 
-export function syncronizePromises(promiseFactories: (() => Promise<any>)[]) {
+export function modFolderMap(modFolders: ModFolder[]): Map<ModFolder> {
+    return modFolders.reduce((map, modFolder) => {
+        map[modFolder.name] = modFolder;
+        return map;
+    }, <Map<ModFolder>>{});
+}
+
+export function executePromisesSequentially<T>(promiseFactories: (() => Promise<T>)[]): Promise<T[]> {
+    if (promiseFactories.length == 0) {
+        return Promise.resolve([]);
+    }
+    const results: T[] = [];
     return promiseFactories
-        .reduce((acc, factory) => acc.then(factory), Promise.resolve());
+        .slice(1)
+        .reduce((acc, factory) => acc.then(result => {
+            results.push(result);
+            return factory();
+        })
+        , promiseFactories[0]())
+        .then(() => results);
 }
 
 export function generateModFolders(root: string, modHasher: ModHasher = hashMod, fileHasher: FileHasher = hashFile): Promise<Map<ModFolder>> {
@@ -102,10 +133,7 @@ export function generateModFolders(root: string, modHasher: ModHasher = hashMod,
             const modFolders = await Promise.all(files
                 .filter(isModFolder)
                 .map(modFolder => getModFolderStats(root, modFolder, modHasher, fileHasher)));
-            resolve(modFolders.reduce((map, modFolder) => {
-                map[modFolder.name] = modFolder;
-                return map;
-            }, <Map<ModFolder>>{}));
+            resolve(modFolderMap(modFolders));
         });
     });
 }
@@ -116,12 +144,7 @@ function isModFolder(name: string): boolean {
 
 async function getModFolderStats(root: string, folder: string, modHasher: ModHasher, fileHasher: FileHasher): Promise<ModFolder> {
     const modFiles = await getModFolderFiles(root, folder, fileHasher);
-    return {
-        name: folder,
-        size: modFiles.reduce((sum, f) => sum + f.size, 0),
-        hash: modHasher(folder, modFiles),
-        modFiles: modFiles
-    };
+    return createModFolder(folder, modFiles, modHasher);
 }
 
 function sort<T>(array: T[], compare: (a: T, b: T) => number): T[] {

@@ -1,4 +1,4 @@
-import { ModFolder, ModFile, Config, subtract } from "wharf-common";
+import { ModFolder, ModFile, Config, subtract, File } from "wharf-common";
 
 type FileDiffState = "sync" | "delete";
 type ModDiffState = "sync" | "delete";
@@ -8,9 +8,7 @@ export interface ModDiff {
     state: ModDiffState;
 }
 
-export interface FileDiff {
-    file: string;
-    mod: string;
+export interface FileDiff extends File {
     state: FileDiffState;
 }
 
@@ -33,15 +31,15 @@ export function diffConfigs(sourceConfig: Config, targetConfig: Config, fileComp
             if (!targetMod) {
                 modDiffs.push({ mod: sourceMod.name, state: "delete" });
                 const sourceFileDiffs = sourceMod.modFiles
-                    .map(file => ({ file: file.relativePath, mod: sourceMod.name, state: <FileDiffState>"delete" }));
+                    .map(file => ({ path: file.relativePath, mod: sourceMod.name, state: <FileDiffState>"delete" }));
                 fileDiffs.push(...sourceFileDiffs);
                 return;
             }
             const deleteSourceFileDiffs = filesToDelete(sourceMod, targetMod)
-                .map(file => ({ file: file, mod: sourceMod.name, state: <FileDiffState>"delete" }));
+                .map(file => ({ path: file, mod: sourceMod.name, state: <FileDiffState>"delete" }));
             fileDiffs.push(...deleteSourceFileDiffs);
             const syncSourceFileDiffs = filesToSync(sourceMod, targetMod, fileComparator)
-                .map(file => ({ file: file, mod: sourceMod.name, state: <FileDiffState>"sync" }));
+                .map(file => ({ path: file, mod: sourceMod.name, state: <FileDiffState>"sync" }));
             fileDiffs.push(...syncSourceFileDiffs);
             if (deleteSourceFileDiffs.length > 0 || syncSourceFileDiffs.length > 0) {
                 modDiffs.push({ mod: sourceMod.name, state: "sync" });
@@ -53,7 +51,7 @@ export function diffConfigs(sourceConfig: Config, targetConfig: Config, fileComp
         .forEach(modName => {
             modDiffs.push({ mod: modName, state: "sync" });
             const sourceFileDiffs = targetConfig.mods[modName].modFiles
-                .map(file => ({ file: file.relativePath, mod: modName, state: <FileDiffState>"sync" }));
+                .map(file => ({ path: file.relativePath, mod: modName, state: <FileDiffState>"sync" }));
             fileDiffs.push(...sourceFileDiffs);
         });
     return {

@@ -9,7 +9,7 @@ import { Settings } from "../common/Settings";
 
 export function registerIpcHandlers() {
     ipcRenderer.on(RendererIpcEvents.SETTINGS_LOADED, (event: any, settings: Settings) => {
-        log.debug(`Renderer received IPC event '${RendererIpcEvents.SETTINGS_LOADED}' with args '${settings}'.`);
+        log.debug(`Renderer received IPC event '${RendererIpcEvents.SETTINGS_LOADED}' with args '${JSON.stringify(settings)}'.`);
         Store.dispatch(settingsLoaded(settings));
     });
 
