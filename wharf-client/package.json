@@ -42,7 +42,7 @@
     "webpack-cli": "3.1.0"
   },
   "dependencies": {
-    "basic-ftp": "2.13.2",
+    "basic-ftp": "2.16.1",
     "bulma": "0.7.2",
     "connected-react-router": "4.5.0",
     "electron-log": "2.2.17",

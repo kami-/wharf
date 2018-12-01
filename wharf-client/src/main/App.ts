@@ -143,9 +143,6 @@ async function startSynchronization(target: any, configDiff: ConfigDiff, localCo
     log.debug(`Sending IPC event '${RendererIpcEvents.START_SYNCHRONIZATION}' to renderer with args '${bytesToBeDownloaded}'.`);
     target.send(RendererIpcEvents.START_SYNCHRONIZATION, bytesToBeDownloaded);
     const cancelToken = createCancelToken();
-    setTimeout(() => {
-        cancelToken.cancel();
-    }, 100);
     LOCAL_CONFIG = await Synchronizer.synchronizeLocalConfig(configDiff, localConfig, serverConfig, cancelToken, trackProgressHandler);
     downloadFinished(target);
 }

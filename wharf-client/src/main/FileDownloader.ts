@@ -34,13 +34,14 @@ export async function downloadFiles(localConfig: LocalConfig, serverConfig: Serv
             user: serverConfig.ftp.user,
             password: serverConfig.ftp.password,
         });
+        log.info(`Connected to '${serverConfig.ftp.user}@${serverConfig.ftp.host}'.`);
         cancelToken.promise()
             .then(() => {
                 log.info(`Downloading have been cancelled! Closing FTP connection.`);
                 return ftp.close();
             });
         log.info(`Preparing to download '${files.length}' files.`);
-        return await prepareFileDownload(ftp, localConfig.root, serverConfig.root, files, cancelToken);
+        return await prepareFileDownload(ftp, localConfig.root, serverConfig.ftp.root, files, cancelToken);
     } catch (e) {
         throw e;
     } finally {

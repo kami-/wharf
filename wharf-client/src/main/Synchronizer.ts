@@ -69,7 +69,7 @@ export async function synchronizeLocalConfig(configDiff: ConfigDiff, localConfig
     const successfullyDownloadedFiles = (await downloadFiles(localConfig, serverConfig, cancelToken, filesToDownload, trackProgressHandler))
         .filter(result => result.state == "ok");
     log.info(`Creating new local config.`);
-    return getNewLocalConfig(localConfig, serverConfig, configDiff, deletedMods, deletedFiles, successfullyDownloadedFiles);
+    return await getNewLocalConfig(localConfig, serverConfig, configDiff, deletedMods, deletedFiles, successfullyDownloadedFiles);
 }
 
 async function synchronizeMods(localConfig: LocalConfig, configDiff: ConfigDiff, cancelToken: CancelToken) {
@@ -131,29 +131,26 @@ async function deleteFiles(localConfig: LocalConfig, configDiff: ConfigDiff, del
     return deletedFiles.filter(notNull);
 }
 
-function getNewLocalConfig(localConfig: LocalConfig, serverConfig: ServerConfig, configDiff: ConfigDiff, deletedMods: string[],
+async function getNewLocalConfig(localConfig: LocalConfig, serverConfig: ServerConfig, configDiff: ConfigDiff, deletedMods: string[],
     deletedFiles: File[], downloadedFiles: FileDownloadResult[])
 {
-    const modFolders = subtract(Object.keys(localConfig.mods), deletedMods)
-        .map(mod => {
-            const modFiles = localConfig.mods[mod].modFiles
-                .filter(modFile => deletedFiles.findIndex(file => file.path == modFile.relativePath) == -1)
-                //.filter(modFile => configDiff.files)
-                .map(modFile => {
-                    const wasDownloaded = downloadedFiles.findIndex(file => file.path == modFile.relativePath) > -1;
-                    if (!wasDownloaded) { return modFile; }
-                    const serverModFile = findModFile(mod, modFile.relativePath, serverConfig);
-                    return serverModFile || modFile;
-                });
-            return createModFolder(mod, modFiles);
+    const newLocalConfig = await generateLocalConfigWithoutHashes(localConfig);
+    Object.values(newLocalConfig.mods)
+        .forEach(modFolder => {
+            modFolder.modFiles = modFolder.modFiles.map(modFile => {
+                const wasDownloaded = downloadedFiles.findIndex(file => modFolder.name == file.mod && modFile.relativePath == file.path);
+                if (wasDownloaded) {
+                    const downloadedServerModFile = findModFile(modFolder.name, modFile.relativePath, serverConfig);
+                    if (downloadedServerModFile) { return downloadedServerModFile; }
+                }
+                const localModFile = findModFile(modFolder.name, modFile.relativePath, localConfig);
+                if (localModFile) {
+                    return localModFile;
+                }
+                return modFile;
+            });
         });
-console.log(modFolders, configDiff, "==============================================");
-    return {
-        root: localConfig.root,
-        serverConfigUrl: localConfig.serverConfigUrl,
-        ftp: serverConfig.ftp,
-        mods: modFolderMap(modFolders)
-    };
+    return newLocalConfig;
 }
 
 function findModFile(mod: string, path: string, config: Config) {
@@ -165,4 +162,8 @@ function findModFile(mod: string, path: string, config: Config) {
 
 function notNull<T>(item: T | null): item is T {
     return item != null;
+}
+
+function defined<T>(item: T | undefined): item is T {
+    return item != undefined;
 }
