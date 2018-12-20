@@ -3,10 +3,10 @@ import * as path from "path";
 
 import * as program from "commander";
 
-import { ServerConfig, generateModFolders } from "wharf-common";
+import { ServerConfig, generateModFolders, createCancelToken } from "wharf-common";
 
 async function generateConfig(config: ServerConfig) {
-    config.mods = await generateModFolders(config.root);
+    config.mods = await generateModFolders(config.root, createCancelToken());
 }
 
 program

@@ -7,12 +7,11 @@ import * as log from "electron-log";
 
 import { TrackingInfo } from "basic-ftp";
 
-import { generateModFolders, executePromisesSequentially, ServerConfig, File, subtract, Config, createModFolder, modFolderMap } from "wharf-common";
+import { generateModFolders, executePromisesSequentially, ServerConfig, Config, createCancelToken, CancelToken } from "wharf-common";
 import { WharfError } from "../common/Error";
 import { LocalConfig } from "./Config";
 import { ConfigDiff } from "./ConfigDiffer";
 import { downloadFiles, FileDownloadResult } from "./FileDownloader";
-import { CancelToken } from "./CancelToken";
 
 export function needsSync(configDiff: ConfigDiff) {
     return configDiff.files.length != 0;
@@ -21,7 +20,7 @@ export function needsSync(configDiff: ConfigDiff) {
 export async function generateLocalConfigWithoutHashes(localConfig: LocalConfig): Promise<LocalConfig> {
     return {
         ...localConfig,
-        mods: await generateModFolders(localConfig.root, () => "", () => Promise.resolve(""))
+        mods: await generateModFolders(localConfig.root, createCancelToken(), () => "", () => Promise.resolve(""))
     };
 }
 
@@ -34,12 +33,14 @@ export function bytesToBeDownloaded(configDiff: ConfigDiff, serverConfig: Server
         }, 0);
 }
 
-export async function bootstrapLocalConfig(serverConfigUrl: string, serverConfig: ServerConfig, root: string): Promise<LocalConfig> {
+export async function bootstrapLocalConfig(serverConfigUrl: string, serverConfig: ServerConfig, root: string,
+    cancelToken: CancelToken): Promise<LocalConfig>
+{
     return {
         root: root,
         serverConfigUrl: serverConfigUrl,
         ftp: serverConfig.ftp,
-        mods: await generateModFolders(root)
+        mods: await generateModFolders(root, cancelToken)
     };
 }
 
@@ -61,7 +62,7 @@ export async function synchronizeLocalConfig(configDiff: ConfigDiff, localConfig
     log.info(`Deleting mods and ensuring folders.`);
     const deletedMods = await synchronizeMods(localConfig, configDiff, cancelToken);
     log.info(`Deleting files.`);
-    const deletedFiles = await deleteFiles(localConfig, configDiff, deletedMods, cancelToken);
+    await deleteFiles(localConfig, configDiff, deletedMods, cancelToken);
     const filesToDownload = configDiff.files
         .filter(diff => diff.state == "sync")
         .map(diff => ({ mod: diff.mod, path: diff.path }));
@@ -69,7 +70,7 @@ export async function synchronizeLocalConfig(configDiff: ConfigDiff, localConfig
     const successfullyDownloadedFiles = (await downloadFiles(localConfig, serverConfig, cancelToken, filesToDownload, trackProgressHandler))
         .filter(result => result.state == "ok");
     log.info(`Creating new local config.`);
-    return await getNewLocalConfig(localConfig, serverConfig, configDiff, deletedMods, deletedFiles, successfullyDownloadedFiles);
+    return await getNewLocalConfig(localConfig, serverConfig, successfullyDownloadedFiles);
 }
 
 async function synchronizeMods(localConfig: LocalConfig, configDiff: ConfigDiff, cancelToken: CancelToken) {
@@ -131,9 +132,7 @@ async function deleteFiles(localConfig: LocalConfig, configDiff: ConfigDiff, del
     return deletedFiles.filter(notNull);
 }
 
-async function getNewLocalConfig(localConfig: LocalConfig, serverConfig: ServerConfig, configDiff: ConfigDiff, deletedMods: string[],
-    deletedFiles: File[], downloadedFiles: FileDownloadResult[])
-{
+async function getNewLocalConfig(localConfig: LocalConfig, serverConfig: ServerConfig, downloadedFiles: FileDownloadResult[]) {
     const newLocalConfig = await generateLocalConfigWithoutHashes(localConfig);
     Object.values(newLocalConfig.mods)
         .forEach(modFolder => {
@@ -162,8 +161,4 @@ function findModFile(mod: string, path: string, config: Config) {
 
 function notNull<T>(item: T | null): item is T {
     return item != null;
-}
-
-function defined<T>(item: T | undefined): item is T {
-    return item != undefined;
 }

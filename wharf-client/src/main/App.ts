@@ -4,7 +4,7 @@ import { BrowserWindow, ipcMain } from "electron";
 import * as log from "electron-log";
 import * as fs from "fs-extra";
 
-import { ServerConfig } from "wharf-common";
+import { ServerConfig, createCancelToken } from "wharf-common";
 import { LocalConfig } from "./Config";
 import { isError } from "../common/Error";
 import * as Synchronizer from "./Synchronizer";
@@ -14,7 +14,6 @@ import { TrackingInfo } from "basic-ftp";
 import { diffConfigs, diffConfigsBySize, ConfigDiff } from "./ConfigDiffer";
 import { launchArma3 } from "./Launcher";
 import { Settings } from "../common/Settings";
-import { createCancelToken } from "./CancelToken";
 
 let LOCAL_CONFIG: LocalConfig | null = null;
 let SERVER_CONFIG: ServerConfig | null = null;
@@ -109,7 +108,7 @@ async function loadExistingConfig(configPath: string) {
 async function bootstrapConfig(localRootPath: string, serverConfigUrl: string) {
     SERVER_CONFIG = await Synchronizer.getServerConfig(serverConfigUrl);
     log.debug(`Loaded server config from '${serverConfigUrl}'.`);
-    LOCAL_CONFIG = await Synchronizer.bootstrapLocalConfig(serverConfigUrl, SERVER_CONFIG, localRootPath);
+    LOCAL_CONFIG = await Synchronizer.bootstrapLocalConfig(serverConfigUrl, SERVER_CONFIG, localRootPath, createCancelToken());
     log.debug(`Bootstraped locals config for '${localRootPath}'.`);
 }
 

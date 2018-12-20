@@ -6,6 +6,12 @@ import * as recursive from "recursive-readdir";
 
 const HASH_ALGORITHM = "md5";
 
+export interface CancelToken {
+    isCancelled: () => boolean;
+    promise: () => Promise<void>;
+    cancel: () => void;
+}
+
 export interface Config {
     root: string;
     mods: Map<ModFolder>;
@@ -44,18 +50,8 @@ export interface Map<T> {
     [key: string]: T;
 }
 
-export type FileHasher = (file: string) => Promise<string>;
+export type FileHasher = (file: string, cancelToken: CancelToken) => Promise<string>;
 export type ModHasher = (mod: string, modFiles: ModFile[]) => string;
-
-async function getModFileStatsAbsolute(root: string, absoluteFile: string, fileHasher: FileHasher) {
-    const stat = fs.statSync(absoluteFile);
-    const hash = await fileHasher(absoluteFile);
-    return {
-        relativePath: toPosix(path.relative(root, absoluteFile)),
-        size: stat.size,
-        hash: hash
-    };
-}
 
 export function createModFolder(name: string, modFiles: ModFile[], modHasher: ModHasher = hashMod) {
     return {
@@ -66,21 +62,30 @@ export function createModFolder(name: string, modFiles: ModFile[], modHasher: Mo
     };
 }
 
-export async function getModFolderFiles(root: string, folder: string, fileHasher: FileHasher = hashFile) {
+export async function getModFolderFiles(root: string, folder: string, cancelToken: CancelToken,
+    fileHasher: FileHasher = hashFile)
+{
+    if (cancelToken.isCancelled()) { return []; }
     const files = await recursive(path.join(root, folder));
-    return await Promise.all(files.map(file => getModFileStatsAbsolute(root, file, fileHasher)));
+    return await Promise.all(files.map(file => getModFileStatsAbsolute(root, file, cancelToken, fileHasher)));
 }
 
-export function hashFile(file: string): Promise<string> {
+export function hashFile(file: string, cancelToken: CancelToken): Promise<string> {
+    if (cancelToken.isCancelled()) { return Promise.resolve(""); }
     return new Promise((resolve, reject) => {
         const hash = crypto.createHash(HASH_ALGORITHM);
         try {
             let stream = fs.createReadStream(file);
+            cancelToken.promise()
+                .then(() => {
+                    stream.destroy();
+                    resolve("");
+                });
             stream.on("data", data => {
                 hash.update(data);
             });
             stream.on("end", () => {
-                return resolve(hash.digest("hex"));
+                resolve(hash.digest("hex"));
             });
         } catch (error) {
             return reject(error);
@@ -126,24 +131,56 @@ export function executePromisesSequentially<T>(promiseFactories: (() => Promise<
         .then(() => results);
 }
 
-export function generateModFolders(root: string, modHasher: ModHasher = hashMod, fileHasher: FileHasher = hashFile): Promise<Map<ModFolder>> {
+export function generateModFolders(root: string, cancelToken: CancelToken, modHasher: ModHasher = hashMod,
+    fileHasher: FileHasher = hashFile): Promise<Map<ModFolder>>
+{
     return new Promise((resolve, reject) => {
         fs.readdir(root, async (err, files) => {
             if (err) { reject(err); }
             const modFolders = await Promise.all(files
                 .filter(isModFolder)
-                .map(modFolder => getModFolderStats(root, modFolder, modHasher, fileHasher)));
+                .map(modFolder => getModFolderStats(root, modFolder, cancelToken, modHasher, fileHasher)));
             resolve(modFolderMap(modFolders));
         });
     });
+}
+
+export function createCancelToken(): CancelToken {
+    let cancelled = false;
+    let cancelResolver: () => void;
+    const cancelPromise = new Promise<void>(resolve => {
+        cancelResolver = resolve;
+    });
+    return {
+        isCancelled: () => cancelled,
+        promise: () => cancelPromise,
+        cancel: () => {
+            cancelled = true;
+            cancelResolver();
+        }
+    };
+}
+
+async function getModFileStatsAbsolute(root: string, absoluteFile: string, cancelToken: CancelToken,
+    fileHasher: FileHasher)
+{
+    const stat = fs.statSync(absoluteFile);
+    const hash = await fileHasher(absoluteFile, cancelToken);
+    return {
+        relativePath: toPosix(path.relative(root, absoluteFile)),
+        size: stat.size,
+        hash: hash
+    };
 }
 
 function isModFolder(name: string): boolean {
     return name.charAt(0) == "@";
 }
 
-async function getModFolderStats(root: string, folder: string, modHasher: ModHasher, fileHasher: FileHasher): Promise<ModFolder> {
-    const modFiles = await getModFolderFiles(root, folder, fileHasher);
+async function getModFolderStats(root: string, folder: string, cancelToken: CancelToken, modHasher: ModHasher,
+    fileHasher: FileHasher): Promise<ModFolder>
+{
+    const modFiles = await getModFolderFiles(root, folder, cancelToken, fileHasher);
     return createModFolder(folder, modFiles, modHasher);
 }
 
